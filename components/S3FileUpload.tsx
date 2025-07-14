@@ -2,7 +2,6 @@
 
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -126,15 +125,30 @@ const S3FileUpload = ({ onFileUploaded, patientId }: S3FileUploadProps) => {
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label htmlFor="file">Выберите файл</Label>
-            <Input
+            <Label>Выберите файл</Label>
+
+            <div className="flex items-center mt-1 space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                Обзор…
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {selectedFile?.name || "Файл не выбран"}
+              </span>
+            </div>
+
+            <input
               ref={fileInputRef}
-              id="file"
               type="file"
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.dicom,.dcm"
               onChange={handleFileSelect}
               disabled={isUploading}
+              className="hidden"
             />
+
             <p className="text-xs text-muted-foreground mt-1">
               Поддерживаемые форматы: PDF, DOC, DOCX, JPG, PNG, DICOM (макс. 10
               МБ)
