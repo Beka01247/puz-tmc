@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import S3FileUpload from "@/components/S3FileUpload";
 import { FileWithUploader } from "@/types/files";
-import { Download, Eye, Trash2, FileText } from "lucide-react";
+import { Eye, Trash2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -80,24 +80,6 @@ const FilesPageClient = ({ patientId }: FilesPageClientProps) => {
 
   const handleViewFile = (fileUrl: string) => {
     window.open(fileUrl, "_blank");
-  };
-
-  const handleDownloadFile = async (fileUrl: string, fileName: string) => {
-    try {
-      const response = await fetch(fileUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("Error downloading file:", error);
-      toast.error("Ошибка при скачивании файла");
-    }
   };
 
   const getFileExtension = (fileName: string) => {
@@ -177,16 +159,6 @@ const FilesPageClient = ({ patientId }: FilesPageClientProps) => {
                       >
                         <Eye className="w-4 h-4 mr-1" />
                         Просмотреть
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          handleDownloadFile(file.fileUrl, file.fileName)
-                        }
-                      >
-                        <Download className="w-4 h-4 mr-1" />
-                        Скачать
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

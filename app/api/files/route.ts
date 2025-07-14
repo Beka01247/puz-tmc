@@ -3,6 +3,19 @@ import { auth } from "@/auth";
 import { db } from "@/db/drizzle";
 import { files, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+
+// Initialize S3 client
+const s3Client = new S3Client({
+  region: process.env.NEXT_PUBLIC_AWS_S3_REGION!,
+  credentials: {
+    accessKeyId: process.env.NEXT_PUBLIC_AWS_S3_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.NEXT_PUBLIC_AWS_S3_SECRET_ACCESS_KEY!,
+  },
+  forcePathStyle: false,
+  useAccelerateEndpoint: false,
+  endpoint: undefined,
+});
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,6 +112,35 @@ export async function DELETE(request: NextRequest) {
 
     if (!file) {
       return NextResponse.json({ error: "File not found" }, { status: 404 });
+    }
+
+    // Extract S3 key from fileUrl
+    const extractS3Key = (fileUrl: string): string | null => {
+      try {
+        const url = new URL(fileUrl);
+        // Remove leading slash and return the path as the key
+        return url.pathname.substring(1);
+      } catch {
+        return null;
+      }
+    };
+
+    const s3Key = extractS3Key(file.fileUrl);
+
+    // Delete from S3 first
+    if (s3Key) {
+      try {
+        const deleteCommand = new DeleteObjectCommand({
+          Bucket: process.env.AWS_S3_BUCKET_NAME!,
+          Key: s3Key,
+        });
+
+        await s3Client.send(deleteCommand);
+        console.log("Successfully deleted file from S3:", s3Key);
+      } catch (error) {
+        console.warn("Error deleting from S3:", error);
+        // Continue with database deletion even if S3 deletion fails
+      }
     }
 
     // Delete from database

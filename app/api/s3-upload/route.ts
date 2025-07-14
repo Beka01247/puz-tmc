@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 
@@ -74,6 +78,41 @@ export async function POST(request: NextRequest) {
     console.error("S3 upload error:", error);
     return NextResponse.json(
       { error: "Failed to upload file" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const fileKey = searchParams.get("key");
+
+    if (!fileKey) {
+      return NextResponse.json(
+        { error: "File key is required" },
+        { status: 400 }
+      );
+    }
+
+    // Delete from S3
+    const deleteCommand = new DeleteObjectCommand({
+      Bucket: process.env.AWS_S3_BUCKET_NAME!,
+      Key: fileKey,
+    });
+
+    await s3Client.send(deleteCommand);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("S3 delete error:", error);
+    return NextResponse.json(
+      { error: "Failed to delete file from S3" },
       { status: 500 }
     );
   }
