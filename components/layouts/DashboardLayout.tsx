@@ -56,6 +56,7 @@ const getPatientNavItems = (userId: string): NavItem[] => [
   { title: "Мониторинг состояния", href: "/dashboard/monitoring" },
   { title: "Лечение", href: "/dashboard/therapy" },
   { title: "Рекомендации", href: "/dashboard/recomendations" },
+  { title: "Файлы", href: "/dashboard/files" },
   { title: "Прием", href: "/dashboard/consultations" },
 ];
 
