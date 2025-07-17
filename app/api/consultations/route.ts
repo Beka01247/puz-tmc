@@ -46,7 +46,7 @@ export async function GET() {
   } catch (error) {
     console.error("GET /consultations error:", error);
     return NextResponse.json(
-      { error: "Не удалось получить консультации", details: error.message },
+      { error: "Не удалось получить консультации", details: error },
       { status: 500 }
     );
   }
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Не удалось создать консультацию", details: error.message },
+      { error: "Не удалось создать консультацию", details: error },
       { status: 500 }
     );
   }
@@ -129,7 +129,7 @@ export async function PUT(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Не удалось обновить консультацию", details: error.message },
+      { error: "Не удалось обновить консультацию", details: error },
       { status: 500 }
     );
   }
@@ -161,7 +161,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("DELETE /consultations error:", error);
     return NextResponse.json(
-      { error: "Не удалось удалить консультацию", details: error.message },
+      { error: "Не удалось удалить консультацию", details: error },
       { status: 500 }
     );
   }

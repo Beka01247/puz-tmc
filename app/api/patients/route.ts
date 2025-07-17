@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
-import {
-  users,
-  consultations,
-  diagnoses,
-  riskGroups,
-  invitations,
-} from "@/db/schema";
+import { users, diagnoses, riskGroups, invitations } from "@/db/schema";
 import { eq, and, ilike } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { auth } from "@/auth";
@@ -78,14 +72,6 @@ export async function GET(request: Request) {
       age: searchParams.get("age"),
       noRiskGroupFilter: searchParams.get("noRiskGroupFilter") ?? undefined,
     });
-
-    type QueryResult = {
-      id: string;
-      name: string;
-      iin: string;
-      diagnoses: unknown;
-      hasInvitation?: boolean;
-    };
 
     // Age filtering for Скрининг
     const ageConditions = [];
@@ -182,8 +168,7 @@ export async function GET(request: Request) {
           age: age ?? 0,
           diagnosis: record.diagnoses || "Нет диагнозов",
           // For ЖФВ, we don't need invitation status
-          isInvited:
-            query.riskGroup === "ЖФВ" ? undefined : record.hasInvitation,
+          isInvited: query.riskGroup === "ЖФВ" ? undefined : record,
         };
       })
       .filter(

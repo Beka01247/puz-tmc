@@ -35,7 +35,7 @@ export async function GET() {
   } catch (error) {
     console.error("GET /recommendations error:", error);
     return NextResponse.json(
-      { error: "Не удалось получить рекомендации", details: error.message },
+      { error: "Не удалось получить рекомендации", details: error },
       { status: 500 }
     );
   }
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Не удалось создать рекомендацию", details: error.message },
+      { error: "Не удалось создать рекомендацию", details: error },
       { status: 500 }
     );
   }
@@ -111,7 +111,7 @@ export async function PUT(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Не удалось обновить рекомендацию", details: error.message },
+      { error: "Не удалось обновить рекомендацию", details: error },
       { status: 500 }
     );
   }
@@ -143,7 +143,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("DELETE /recommendations error:", error);
     return NextResponse.json(
-      { error: "Не удалось удалить рекомендацию", details: error.message },
+      { error: "Не удалось удалить рекомендацию", details: error },
       { status: 500 }
     );
   }

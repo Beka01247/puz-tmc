@@ -3,11 +3,10 @@ import { db } from "@/db/drizzle";
 import {
   users,
   invitations,
-  invitationStatusEnum,
   pregnancies,
   fertileWomenRegister,
 } from "@/db/schema";
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, ilike } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
 

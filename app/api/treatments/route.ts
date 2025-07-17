@@ -43,7 +43,7 @@ export async function GET() {
   } catch (error) {
     console.error("GET /treatments error:", error);
     return NextResponse.json(
-      { error: "Не удалось получить данные лечения", details: error.message },
+      { error: "Не удалось получить данные лечения", details: error },
       { status: 500 }
     );
   }
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Не удалось создать запись лечения", details: error.message },
+      { error: "Не удалось создать запись лечения", details: error },
       { status: 500 }
     );
   }
@@ -127,7 +127,7 @@ export async function PUT(request: Request) {
       );
     }
     return NextResponse.json(
-      { error: "Не удалось обновить запись лечения", details: error.message },
+      { error: "Не удалось обновить запись лечения", details: error },
       { status: 500 }
     );
   }
@@ -159,7 +159,7 @@ export async function DELETE(request: Request) {
   } catch (error) {
     console.error("DELETE /treatments error:", error);
     return NextResponse.json(
-      { error: "Не удалось удалить запись лечения", details: error.message },
+      { error: "Не удалось удалить запись лечения", details: error },
       { status: 500 }
     );
   }

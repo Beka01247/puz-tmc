@@ -27,6 +27,7 @@ export async function PATCH(
     }
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Error updating invitation:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
