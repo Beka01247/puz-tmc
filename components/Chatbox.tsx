@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { FC } from "react";
 import { useChannel } from "ably/react";
-import type { Types } from "ably";
+import type * as Ably from "ably";
 
 type Message = {
   id: string;
@@ -34,7 +34,7 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
 
   const { channel } = useChannel(
     `patient-${patientId}`,
-    (message: Types.Message) => {
+    (message: Ably.Message) => {
       const messageData = message.data as {
         text: string;
         sender: {

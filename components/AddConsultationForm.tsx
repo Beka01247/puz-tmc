@@ -67,7 +67,9 @@ export const AddConsultationForm = ({
       form.reset();
       onSuccess();
     } catch (error) {
-      toast.error(error.message || "Ошибка при добавлении приема");
+      const errorMessage =
+        error instanceof Error ? error.message : "Ошибка при добавлении приема";
+      toast.error(errorMessage);
     }
   };
 

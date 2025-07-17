@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 const {
   env: {
-    imagekit: { publicKey, urlEndpoint },
+    imagekit: { urlEndpoint },
   },
 } = config;
 
@@ -22,7 +22,9 @@ const authenticator = async () => {
     const { signature, expire, token } = data;
     return { token, expire, signature };
   } catch (error) {
-    throw new Error(`ImageKit authentication failed: ${error.message}`);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    throw new Error(`ImageKit authentication failed: ${errorMessage}`);
   }
 };
 
@@ -58,7 +60,7 @@ const FileUpload = ({
     text: variant === "dark" ? "text-white" : "text-gray-800",
   };
 
-  const onError = (error: any) => {
+  const onError = (error: Error | unknown) => {
     console.error("Upload error:", error);
     toast.error(
       `Не удалось загрузить ${type === "image" ? "изображение" : "файл"}. Попробуйте снова.`

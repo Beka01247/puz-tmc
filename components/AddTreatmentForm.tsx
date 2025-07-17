@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { useState } from "react";
 
 const formSchema = z.object({
   medication: z.string().min(1, "Медикамент обязателен"),

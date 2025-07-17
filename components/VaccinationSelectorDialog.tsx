@@ -56,7 +56,7 @@ export const VaccinationSelectorDialog = ({
       toast.success("Вакцинация запланирована");
       onVaccinationCreated();
       handleClose();
-    } catch (error) {
+    } catch {
       toast.error("Не удалось запланировать вакцинацию");
     }
   };

@@ -58,7 +58,11 @@ export const AddRecommendationForm = ({
       form.reset();
       onSuccess();
     } catch (error) {
-      toast.error(error.message || "Ошибка при добавлении рекомендации");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Ошибка при добавлении рекомендации";
+      toast.error(errorMessage);
     }
   };
 
