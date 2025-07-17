@@ -41,6 +41,11 @@ interface Invitation {
   createdAt: string;
 }
 
+interface ScreeningWithInvitation extends PatientScreening {
+  providerName?: string | null;
+  isInvitation?: boolean;
+}
+
 interface ScreeningCardProps {
   patientId: string;
   screenings: PatientScreening[];
@@ -209,30 +214,34 @@ export const ScreeningCard = ({
           </Button>
         )}
         <div className="space-y-4 h-[300px] overflow-y-auto pr-2">
-          {[
-            ...screenings,
-            ...invitations.map((inv) => ({
-              id: inv.id,
-              screeningId: "",
-              customScreeningName: inv.riskGroup,
-              scheduledDate: inv.createdAt,
-              status: inv.status as PatientScreening["status"],
-              result: null,
-              notes: null,
-              completedAt: null,
-              confirmedAt: null,
-              confirmedBy: null,
-              createdAt: inv.createdAt,
-              screening: {
-                id: "",
-                name: inv.riskGroup,
-                description: null,
-                testName: null,
-              },
-              providerName: inv.providerName,
-              isInvitation: true,
-            })),
-          ].map((screening: any) => (
+          {(
+            [
+              ...screenings,
+              ...invitations.map(
+                (inv): ScreeningWithInvitation => ({
+                  id: inv.id,
+                  screeningId: "",
+                  customScreeningName: inv.riskGroup,
+                  scheduledDate: inv.createdAt,
+                  status: inv.status as PatientScreening["status"],
+                  result: null,
+                  notes: null,
+                  completedAt: null,
+                  confirmedAt: null,
+                  confirmedBy: null,
+                  createdAt: inv.createdAt,
+                  screening: {
+                    id: "",
+                    name: inv.riskGroup,
+                    description: null,
+                    testName: null,
+                  },
+                  providerName: inv.providerName,
+                  isInvitation: true,
+                })
+              ),
+            ] as ScreeningWithInvitation[]
+          ).map((screening) => (
             <div
               key={screening.id + (screening.isInvitation ? "-inv" : "")}
               className="border rounded-lg p-4 space-y-2"

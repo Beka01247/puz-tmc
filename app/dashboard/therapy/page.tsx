@@ -2,7 +2,6 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -13,7 +12,7 @@ import {
 } from "@/components/ui/table";
 import { db } from "@/db/drizzle";
 import { treatments, users } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 interface Treatment {
   id: string;
@@ -41,11 +40,13 @@ async function fetchTreatments(patientId: string): Promise<Treatment[]> {
     return data.map((record) => ({
       id: record.id,
       text: `${record.medication}, ${record.dosage}, ${record.frequency}, ${record.duration}`,
-      date: new Date(record.createdAt).toLocaleDateString("ru-RU", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
+      date: record.createdAt
+        ? new Date(record.createdAt).toLocaleDateString("ru-RU", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "Дата не указана",
       doctor: record.doctorName || "Неизвестный врач",
     }));
   } catch (error) {
@@ -54,7 +55,7 @@ async function fetchTreatments(patientId: string): Promise<Treatment[]> {
   }
 }
 
-const RecommendationsPage = async () => {
+const TherapyPage = async () => {
   const session = await auth();
 
   if (!session || !session.user?.id) {
@@ -83,7 +84,7 @@ const RecommendationsPage = async () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Рекомендация</TableHead>
+                <TableHead>Лечение</TableHead>
                 <TableHead>Дата</TableHead>
                 <TableHead>Врач</TableHead>
               </TableRow>
@@ -112,4 +113,4 @@ const RecommendationsPage = async () => {
   );
 };
 
-export default RecommendationsPage;
+export default TherapyPage;

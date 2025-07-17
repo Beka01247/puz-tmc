@@ -20,6 +20,7 @@ import {
   patientVaccinations,
   receptions,
   invitations,
+  treatmentTimes,
 } from "@/db/schema";
 
 async function fetchPatientData(patientId: string) {
@@ -53,6 +54,7 @@ async function fetchPatientData(patientId: string) {
       diagnosis: receptions.diagnosis,
       examinations: receptions.examinations,
       treatment: receptions.treatment,
+      recommendations: receptions.recommendations,
       createdAt: receptions.createdAt,
     })
     .from(receptions)
@@ -90,7 +92,26 @@ async function fetchPatientData(patientId: string) {
     .from(treatments)
     .leftJoin(users, eq(treatments.providerId, users.id))
     .where(eq(treatments.patientId, patientId))
-    .then((data) => data || []);
+    .then(async (data) => {
+      // Fetch treatment times for each treatment
+      const treatmentsWithTimes = await Promise.all(
+        data.map(async (treatment) => {
+          const times = await db
+            .select({
+              id: treatmentTimes.id,
+              time: treatmentTimes.timeOfDay,
+            })
+            .from(treatmentTimes)
+            .where(eq(treatmentTimes.treatmentId, treatment.id));
+
+          return {
+            ...treatment,
+            times: times || [],
+          };
+        })
+      );
+      return treatmentsWithTimes;
+    });
 
   const consultationsData = await db
     .select({
@@ -359,7 +380,7 @@ interface Props {
   params: { id: string };
 }
 
-export default async function PatientDetailsPage({ params }: Props) {
+const PatientDetailsPage = async ({ params }: Props) => {
   const session = await auth();
 
   if (!session || !session.user) {
@@ -436,4 +457,6 @@ export default async function PatientDetailsPage({ params }: Props) {
       userId={session.user.id}
     />
   );
-}
+};
+
+export default PatientDetailsPage;

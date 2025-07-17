@@ -214,6 +214,9 @@ export const patientScreenings = pgTable("patient_screenings", {
     onDelete: "set null",
   }), // Can be null for custom
   customScreeningName: varchar("custom_screening_name", { length: 255 }), // Only used if screeningId is null
+  providerId: uuid("provider_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   scheduledDate: date("scheduled_date").notNull(),
   status: screeningStatusEnum("status").default("INVITED"),
   result: text("result"),

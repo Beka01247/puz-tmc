@@ -77,6 +77,11 @@ interface Consultation {
   providerName: string | null;
 }
 
+interface TreatmentTime {
+  id: string;
+  time: string;
+}
+
 interface Treatment {
   id: string;
   medication: string;
@@ -85,6 +90,7 @@ interface Treatment {
   duration: string;
   notes: string | null;
   providerName: string | null;
+  times: TreatmentTime[];
 }
 
 interface Recommendation {
@@ -148,6 +154,7 @@ interface Reception {
   diagnosis: string;
   examinations: string;
   treatment: string;
+  recommendations: string;
   createdAt: string;
 }
 

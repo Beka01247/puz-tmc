@@ -2,7 +2,6 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
-import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -40,11 +39,13 @@ async function fetchRecommendations(
     return data.map((record) => ({
       id: record.id,
       text: record.description,
-      date: new Date(record.createdAt).toLocaleDateString("ru-RU", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
+      date: record.createdAt
+        ? new Date(record.createdAt).toLocaleDateString("ru-RU", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })
+        : "Дата не указана",
       doctor: record.doctorName || "Неизвестный врач",
     }));
   } catch (error) {

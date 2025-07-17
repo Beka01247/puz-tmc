@@ -74,7 +74,8 @@ export async function POST(
       .values({
         patientId: params.id,
         screeningId,
-        scheduledDate,
+        providerId: session.user.id,
+        scheduledDate: scheduledDate.toISOString().split("T")[0], // Convert to YYYY-MM-DD format
         notes,
         status: "INVITED",
       })
@@ -147,7 +148,7 @@ export async function PATCH(
     }
 
     // Update the screening status
-    const updateData: any = {
+    const updateData: Partial<typeof patientScreenings.$inferInsert> = {
       status,
       notes: notes || existingScreening.notes,
     };
