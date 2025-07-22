@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sapa Telemed",
+  title: "Сапа Телемед",
   description: "Telemedicine app",
 };
 
