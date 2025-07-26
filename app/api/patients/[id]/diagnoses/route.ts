@@ -15,9 +15,10 @@ const diagnosisIdSchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
       return NextResponse.json(
@@ -31,7 +32,7 @@ export async function POST(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -48,7 +49,7 @@ export async function POST(
     const [newDiagnosis] = await db
       .insert(diagnoses)
       .values({
-        userId: params.id,
+        userId: resolvedParams.id,
         description,
       })
       .returning({ id: diagnoses.id, description: diagnoses.description });
@@ -68,9 +69,10 @@ export async function POST(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
       return NextResponse.json(
@@ -84,7 +86,7 @@ export async function PUT(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -100,15 +102,15 @@ export async function PUT(
       .object({ diagnoses: z.array(diagnosisSchema) })
       .parse(body);
 
-    await db.delete(diagnoses).where(eq(diagnoses.userId, params.id));
+    await db.delete(diagnoses).where(eq(diagnoses.userId, resolvedParams.id));
 
-    let updatedDiagnoses = [];
+    let updatedDiagnoses: { id: string; description: string }[] = [];
     if (newDiagnoses.length > 0) {
       updatedDiagnoses = await db
         .insert(diagnoses)
         .values(
           newDiagnoses.map(({ description }) => ({
-            userId: params.id,
+            userId: resolvedParams.id,
             description,
           }))
         )
@@ -130,9 +132,10 @@ export async function PUT(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
       return NextResponse.json(
@@ -146,7 +149,7 @@ export async function PATCH(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -168,7 +171,7 @@ export async function PATCH(
     const [updatedDiagnosis] = await db
       .update(diagnoses)
       .set({ description, updatedAt: new Date() })
-      .where(and(eq(diagnoses.id, id), eq(diagnoses.userId, params.id)))
+      .where(and(eq(diagnoses.id, id), eq(diagnoses.userId, resolvedParams.id)))
       .returning({ id: diagnoses.id, description: diagnoses.description });
 
     if (!updatedDiagnosis) {
@@ -190,9 +193,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
       return NextResponse.json(
@@ -206,7 +210,7 @@ export async function DELETE(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -222,7 +226,7 @@ export async function DELETE(
 
     const [deletedDiagnosis] = await db
       .delete(diagnoses)
-      .where(and(eq(diagnoses.id, id), eq(diagnoses.userId, params.id)))
+      .where(and(eq(diagnoses.id, id), eq(diagnoses.userId, resolvedParams.id)))
       .returning({ id: diagnoses.id, description: diagnoses.description });
 
     if (!deletedDiagnosis) {

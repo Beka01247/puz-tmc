@@ -22,8 +22,9 @@ const treatmentSchema = z.object({
 
 export const GET = async (
   _: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -36,7 +37,7 @@ export const GET = async (
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -60,7 +61,7 @@ export const GET = async (
       })
       .from(treatments)
       .leftJoin(users, eq(treatments.providerId, users.id))
-      .where(eq(treatments.patientId, params.id));
+      .where(eq(treatments.patientId, resolvedParams.id));
 
     // Fetch treatment times for each treatment
     const treatmentsWithTimes = await Promise.all(
@@ -92,8 +93,9 @@ export const GET = async (
 
 export const POST = async (
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -115,7 +117,7 @@ export const POST = async (
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -129,7 +131,7 @@ export const POST = async (
     const [newTreatment] = await db
       .insert(treatments)
       .values({
-        patientId: params.id,
+        patientId: resolvedParams.id,
         providerId: session.user.id,
         medication: validated.medication,
         dosage: validated.dosage,

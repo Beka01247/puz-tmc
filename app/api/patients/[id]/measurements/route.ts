@@ -17,8 +17,9 @@ const measurementSchema = z.array(
 
 export const GET = async (
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -44,7 +45,7 @@ export const GET = async (
       .leftJoin(users, eq(measurements.userId, users.id))
       .where(
         and(
-          eq(measurements.userId, params.id),
+          eq(measurements.userId, resolvedParams.id),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
         )
@@ -53,7 +54,7 @@ export const GET = async (
     const validated = measurementSchema.parse(
       data.map((item) => ({
         ...item,
-        createdAt: item.createdAt.toISOString(),
+        createdAt: item.createdAt?.toISOString() || new Date().toISOString(),
       }))
     );
     return NextResponse.json(validated);
@@ -62,7 +63,7 @@ export const GET = async (
     return NextResponse.json(
       {
         error: "Не удалось получить данные мониторинга",
-        details: error.message,
+        details: error instanceof Error ? error.message : String(error),
       },
       { status: 500 }
     );

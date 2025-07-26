@@ -18,8 +18,9 @@ const fileSchema = z.array(
 
 export const GET = async (
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -46,7 +47,7 @@ export const GET = async (
       .leftJoin(users, eq(files.uploadedBy, users.id))
       .where(
         and(
-          eq(files.patientId, params.id),
+          eq(files.patientId, resolvedParams.id),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
         )
@@ -55,14 +56,17 @@ export const GET = async (
     const validated = fileSchema.parse(
       data.map((item) => ({
         ...item,
-        createdAt: item.createdAt.toISOString(),
+        createdAt: item.createdAt?.toISOString() || new Date().toISOString(),
       }))
     );
     return NextResponse.json(validated);
   } catch (error) {
     console.error("GET /patients/[id]/files error:", error);
     return NextResponse.json(
-      { error: "Не удалось получить файлы", details: error.message },
+      {
+        error: "Не удалось получить файлы",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

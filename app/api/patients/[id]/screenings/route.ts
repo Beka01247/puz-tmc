@@ -21,9 +21,10 @@ const statusUpdateSchema = z.object({
 // Create new screening invitation
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -41,7 +42,7 @@ export async function POST(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -72,7 +73,7 @@ export async function POST(
     const [newPatientScreening] = await db
       .insert(patientScreenings)
       .values({
-        patientId: params.id,
+        patientId: resolvedParams.id,
         screeningId,
         providerId: session.user.id,
         scheduledDate: scheduledDate.toISOString().split("T")[0], // Convert to YYYY-MM-DD format
@@ -97,9 +98,10 @@ export async function POST(
 // Update screening status
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (!session || !session.user?.id) {
       return NextResponse.json(
@@ -111,7 +113,7 @@ export async function PATCH(
     const [patient] = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.id, params.id));
+      .where(eq(users.id, resolvedParams.id));
 
     if (!patient) {
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
@@ -136,7 +138,7 @@ export async function PATCH(
       .where(
         and(
           eq(patientScreenings.id, patientScreeningId),
-          eq(patientScreenings.patientId, params.id)
+          eq(patientScreenings.patientId, resolvedParams.id)
         )
       );
 
@@ -183,9 +185,10 @@ export async function PATCH(
 // Get patient screenings
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (!session || !session.user?.id) {
       return NextResponse.json(
@@ -197,7 +200,7 @@ export async function GET(
     const [patient] = await db
       .select({ id: users.id })
       .from(users)
-      .where(eq(users.id, params.id));
+      .where(eq(users.id, resolvedParams.id));
 
     if (!patient) {
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
@@ -225,7 +228,7 @@ export async function GET(
       })
       .from(patientScreenings)
       .leftJoin(screenings, eq(screenings.id, patientScreenings.screeningId))
-      .where(eq(patientScreenings.patientId, params.id));
+      .where(eq(patientScreenings.patientId, resolvedParams.id));
 
     return NextResponse.json(patientScreeningsList);
   } catch (error) {

@@ -15,8 +15,9 @@ const consultationSchema = z.object({
 
 export const GET = async (
   _: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -29,7 +30,7 @@ export const GET = async (
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -51,7 +52,7 @@ export const GET = async (
       })
       .from(consultations)
       .leftJoin(users, eq(consultations.providerId, users.id))
-      .where(eq(consultations.patientId, params.id));
+      .where(eq(consultations.patientId, resolvedParams.id));
 
     return NextResponse.json(consultationsData);
   } catch (error) {
@@ -65,8 +66,9 @@ export const GET = async (
 
 export const POST = async (
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -88,7 +90,7 @@ export const POST = async (
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -102,7 +104,7 @@ export const POST = async (
     const [newConsultation] = await db
       .insert(consultations)
       .values({
-        patientId: params.id,
+        patientId: resolvedParams.id,
         providerId: session.user.id,
         consultationDate: new Date(validated.consultationDate),
         notes: validated.notes,
@@ -117,7 +119,10 @@ export const POST = async (
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
     return NextResponse.json(
-      { error: "Не удалось создать прием", details: error.message },
+      {
+        error: "Не удалось создать прием",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

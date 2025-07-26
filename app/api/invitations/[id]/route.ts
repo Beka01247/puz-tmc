@@ -5,9 +5,10 @@ import { eq } from "drizzle-orm";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const { status } = await request.json();
     if (!status) {
       return NextResponse.json(
@@ -18,7 +19,7 @@ export async function PATCH(
     const updated = await db
       .update(invitations)
       .set({ status })
-      .where(eq(invitations.id, params.id));
+      .where(eq(invitations.id, id));
     if (updated.rowCount === 0) {
       return NextResponse.json(
         { error: "Invitation not found" },

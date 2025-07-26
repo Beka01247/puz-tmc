@@ -11,9 +11,10 @@ const pregnancySchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -31,7 +32,7 @@ export async function POST(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -45,12 +46,11 @@ export async function POST(
     const body = await request.json();
     const { lmp } = pregnancySchema.parse(body);
 
-    const lmpDate = new Date(lmp);
     const [newPregnancy] = await db
       .insert(pregnancies)
       .values({
-        userId: params.id,
-        lmp: lmpDate.toISOString().split("T")[0],
+        userId: resolvedParams.id,
+        lmp,
         status: "active",
       })
       .returning();
@@ -70,9 +70,10 @@ export async function POST(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -89,7 +90,10 @@ export async function GET(
       .select()
       .from(pregnancies)
       .where(
-        and(eq(pregnancies.userId, params.id), eq(pregnancies.status, "active"))
+        and(
+          eq(pregnancies.userId, resolvedParams.id),
+          eq(pregnancies.status, "active")
+        )
       );
 
     return NextResponse.json(pregnancy || null);
@@ -104,9 +108,10 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -123,7 +128,10 @@ export async function DELETE(
       .update(pregnancies)
       .set({ status: "completed" })
       .where(
-        and(eq(pregnancies.userId, params.id), eq(pregnancies.status, "active"))
+        and(
+          eq(pregnancies.userId, resolvedParams.id),
+          eq(pregnancies.status, "active")
+        )
       );
 
     return NextResponse.json({ message: "Беременность завершена" });

@@ -7,16 +7,17 @@ import { auth } from "@/auth";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
 
     if (!session?.user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const patientId = params.id;
+    const patientId = resolvedParams.id;
 
     const result = await db
       .select()
@@ -36,9 +37,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
 
     if (!session?.user) {
@@ -51,7 +53,7 @@ export async function PUT(
     }
 
     const data = await request.json();
-    const patientId = params.id;
+    const patientId = resolvedParams.id;
 
     await db
       .update(fertileWomenRegister)
@@ -78,9 +80,10 @@ export async function PUT(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
 
     if (!session?.user) {
@@ -92,7 +95,7 @@ export async function POST(
       return new NextResponse("Forbidden", { status: 403 });
     }
 
-    const patientId = params.id;
+    const patientId = resolvedParams.id;
 
     // Check if patient is already in the register
     const existingRecord = await db
@@ -135,9 +138,10 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
 
     if (!session?.user) {
@@ -155,7 +159,7 @@ export async function DELETE(
       return new NextResponse("Reason is required", { status: 400 });
     }
 
-    const patientId = params.id;
+    const patientId = resolvedParams.id;
 
     // Update patient record with deregistration info instead of deleting
     await db

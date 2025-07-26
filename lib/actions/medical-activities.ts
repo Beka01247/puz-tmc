@@ -12,7 +12,7 @@ import { revalidatePath } from "next/cache";
 export async function updateActivityStatus(
   activityId: string,
   activityType: "INVITATION" | "SCREENING" | "VACCINATION",
-  newStatus: string
+  newStatus: "INVITED" | "COMPLETED" | "CONFIRMED" | "CANCELLED" | "REJECTED"
 ) {
   try {
     switch (activityType) {

@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
 import {
@@ -55,13 +55,7 @@ export const ScreeningSelectorDialog = ({
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchAvailableScreenings();
-    }
-  }, [isOpen]);
-
-  const fetchAvailableScreenings = async () => {
+  const fetchAvailableScreenings = useCallback(async () => {
     try {
       const response = await fetch("/api/screenings");
       if (!response.ok) throw new Error("Failed to fetch screenings");
@@ -83,7 +77,13 @@ export const ScreeningSelectorDialog = ({
       console.error("Error fetching screenings:", error);
       toast.error("Не удалось загрузить список скринингов");
     }
-  };
+  }, [patientGender, patientAge]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchAvailableScreenings();
+    }
+  }, [isOpen, fetchAvailableScreenings]);
 
   const handleInvite = async () => {
     if (!selectedScreeningId) {

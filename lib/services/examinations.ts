@@ -65,42 +65,64 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
   const rg = riskGroups;
   const inv = invitations;
 
-  let baseQuery = db
-    .select({
-      id: users.id,
-      name: users.fullName,
-      iin: users.iin,
-      diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
-      completedScreenings:
-        riskGroup === "Скрининг"
-          ? sql`STRING_AGG(DISTINCT CASE WHEN ${ps.status} = 'CONFIRMED' THEN COALESCE(${s.name}, ${ps.customScreeningName}) END, ', ')`
-          : sql`NULL`,
-      completedVaccinations:
-        riskGroup === "Вакцинация"
-          ? sql`STRING_AGG(DISTINCT CASE WHEN ${pv.status} = 'CONFIRMED' THEN ${pv.name} END, ', ')`
-          : sql`NULL`,
-      pregnancyLmp: riskGroup === "Беременные" ? pg.lmp : sql`NULL`,
-      invitationId: ["ДУ", "ПУЗ", "Беременные", "ЖФВ"].includes(riskGroup)
-        ? inv.id
+  // Build the base query with common selections
+  const baseSelect = {
+    id: users.id,
+    name: users.fullName,
+    iin: users.iin,
+    diagnoses: sql`STRING_AGG(DISTINCT ${diagnoses.description}, ', ')`,
+    completedScreenings:
+      riskGroup === "Скрининг"
+        ? sql`STRING_AGG(DISTINCT CASE WHEN ${ps.status} = 'CONFIRMED' THEN COALESCE(${s.name}, ${ps.customScreeningName}) END, ', ')`
         : sql`NULL`,
-    })
-    .from(users)
-    .leftJoin(diagnoses, eq(diagnoses.userId, users.id));
+    completedVaccinations:
+      riskGroup === "Вакцинация"
+        ? sql`STRING_AGG(DISTINCT CASE WHEN ${pv.status} = 'CONFIRMED' THEN ${pv.name} END, ', ')`
+        : sql`NULL`,
+    pregnancyLmp: riskGroup === "Беременные" ? pg.lmp : sql`NULL`,
+    invitationId: ["ДУ", "ПУЗ", "Беременные", "ЖФВ"].includes(riskGroup)
+      ? inv.id
+      : sql`NULL`,
+  };
 
-  // Add specific joins based on tab
+  // Build query based on risk group to maintain proper types
   switch (riskGroup) {
     case "Скрининг":
-      baseQuery = baseQuery
+      return db
+        .select(baseSelect)
+        .from(users)
+        .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
         .leftJoin(ps, eq(ps.patientId, users.id))
-        .leftJoin(s, eq(s.id, ps.screeningId));
-      break;
+        .leftJoin(s, eq(s.id, ps.screeningId))
+        .where(
+          and(
+            eq(users.userType, "PATIENT"),
+            ilike(users.organization, organization || ""),
+            ilike(users.city, city || ""),
+            ...ageFilters
+          )
+        );
 
     case "Вакцинация":
-      baseQuery = baseQuery.leftJoin(pv, eq(pv.patientId, users.id));
-      break;
+      return db
+        .select(baseSelect)
+        .from(users)
+        .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
+        .leftJoin(pv, eq(pv.patientId, users.id))
+        .where(
+          and(
+            eq(users.userType, "PATIENT"),
+            ilike(users.organization, organization || ""),
+            ilike(users.city, city || ""),
+            ...ageFilters
+          )
+        );
 
     case "Беременные":
-      baseQuery = baseQuery
+      return db
+        .select(baseSelect)
+        .from(users)
+        .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
         .innerJoin(pg, and(eq(pg.userId, users.id), eq(pg.status, "active")))
         .leftJoin(
           inv,
@@ -109,11 +131,21 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
             eq(inv.riskGroup, riskGroup),
             eq(inv.status, "INVITED")
           )
+        )
+        .where(
+          and(
+            eq(users.userType, "PATIENT"),
+            ilike(users.organization, organization || ""),
+            ilike(users.city, city || ""),
+            ...ageFilters
+          )
         );
-      break;
 
     case "ЖФВ":
-      baseQuery = baseQuery
+      return db
+        .select(baseSelect)
+        .from(users)
+        .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
         .innerJoin(
           fertileWomenRegister,
           and(eq(fertileWomenRegister.userId, users.id))
@@ -125,12 +157,22 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
             eq(inv.riskGroup, riskGroup),
             eq(inv.status, "INVITED")
           )
+        )
+        .where(
+          and(
+            eq(users.userType, "PATIENT"),
+            ilike(users.organization, organization || ""),
+            ilike(users.city, city || ""),
+            ...ageFilters
+          )
         );
-      break;
 
     case "ДУ":
     case "ПУЗ":
-      baseQuery = baseQuery
+      return db
+        .select(baseSelect)
+        .from(users)
+        .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
         .innerJoin(rg, and(eq(rg.userId, users.id), eq(rg.name, riskGroup)))
         .leftJoin(
           inv,
@@ -139,21 +181,31 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
             eq(inv.riskGroup, riskGroup),
             eq(inv.status, "INVITED")
           )
+        )
+        .where(
+          and(
+            eq(users.userType, "PATIENT"),
+            ilike(users.organization, organization || ""),
+            ilike(users.city, city || ""),
+            ...ageFilters
+          )
         );
-      break;
+
+    default:
+      // Default case for any other risk groups
+      return db
+        .select(baseSelect)
+        .from(users)
+        .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
+        .where(
+          and(
+            eq(users.userType, "PATIENT"),
+            ilike(users.organization, organization || ""),
+            ilike(users.city, city || ""),
+            ...ageFilters
+          )
+        );
   }
-
-  // Add base where conditions
-  baseQuery = baseQuery.where(
-    and(
-      eq(users.userType, "PATIENT"),
-      ilike(users.organization, organization || ""),
-      ilike(users.city, city || ""),
-      ...ageFilters
-    )
-  );
-
-  return baseQuery;
 }
 
 export async function getPatients(filters: ExaminationFilters) {
@@ -161,7 +213,8 @@ export async function getPatients(filters: ExaminationFilters) {
     const query = buildScreeningsQuery(filters);
 
     // Different columns need to be grouped based on the tab
-    const groupByColumns = [users.id, users.fullName, users.iin];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const groupByColumns: any[] = [users.id, users.fullName, users.iin];
 
     if (filters.riskGroup === "Беременные") {
       groupByColumns.push(pregnancies.lmp, invitations.id);

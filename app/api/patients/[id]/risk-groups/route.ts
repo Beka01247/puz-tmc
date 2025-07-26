@@ -15,9 +15,10 @@ const riskGroupIdSchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -35,7 +36,7 @@ export async function POST(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -52,7 +53,7 @@ export async function POST(
     const [newRiskGroup] = await db
       .insert(riskGroups)
       .values({
-        userId: params.id,
+        userId: resolvedParams.id,
         name,
       })
       .returning({ id: riskGroups.id, name: riskGroups.name });
@@ -72,9 +73,10 @@ export async function POST(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -92,7 +94,7 @@ export async function PUT(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -108,15 +110,15 @@ export async function PUT(
       .object({ riskGroups: z.array(riskGroupSchema) })
       .parse(body);
 
-    await db.delete(riskGroups).where(eq(riskGroups.userId, params.id));
+    await db.delete(riskGroups).where(eq(riskGroups.userId, resolvedParams.id));
 
-    let updatedRiskGroups = [];
+    let updatedRiskGroups: { id: string; name: string }[] = [];
     if (newRiskGroups.length > 0) {
       updatedRiskGroups = await db
         .insert(riskGroups)
         .values(
           newRiskGroups.map(({ name }) => ({
-            userId: params.id,
+            userId: resolvedParams.id,
             name,
           }))
         )
@@ -138,9 +140,10 @@ export async function PUT(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -158,7 +161,7 @@ export async function PATCH(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -180,7 +183,9 @@ export async function PATCH(
     const [updatedRiskGroup] = await db
       .update(riskGroups)
       .set({ name, updatedAt: new Date() })
-      .where(and(eq(riskGroups.id, id), eq(riskGroups.userId, params.id)))
+      .where(
+        and(eq(riskGroups.id, id), eq(riskGroups.userId, resolvedParams.id))
+      )
       .returning({ id: riskGroups.id, name: riskGroups.name });
 
     if (!updatedRiskGroup) {
@@ -202,9 +207,10 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const resolvedParams = await params;
     const session = await auth();
     if (
       !session ||
@@ -222,7 +228,7 @@ export async function DELETE(
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
@@ -238,7 +244,9 @@ export async function DELETE(
 
     const [deletedRiskGroup] = await db
       .delete(riskGroups)
-      .where(and(eq(riskGroups.id, id), eq(riskGroups.userId, params.id)))
+      .where(
+        and(eq(riskGroups.id, id), eq(riskGroups.userId, resolvedParams.id))
+      )
       .returning({ id: riskGroups.id, name: riskGroups.name });
 
     if (!deletedRiskGroup) {

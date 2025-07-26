@@ -6,8 +6,9 @@ import { eq, and } from "drizzle-orm";
 
 export const DELETE = async (
   _: Request,
-  { params }: { params: { id: string; treatmentId: string } }
+  { params }: { params: Promise<{ id: string; treatmentId: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -21,8 +22,8 @@ export const DELETE = async (
   }
 
   try {
-    const patientId = params.id;
-    const treatmentId = params.treatmentId;
+    const patientId = resolvedParams.id;
+    const treatmentId = resolvedParams.treatmentId;
 
     // Verify patient exists and is accessible
     const [patient] = await db

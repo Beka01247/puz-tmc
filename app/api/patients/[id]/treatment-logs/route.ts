@@ -16,8 +16,9 @@ const treatmentLogSchema = z.object({
 
 export const GET = async (
   _: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -30,14 +31,14 @@ export const GET = async (
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
         )
       );
 
-    if (!patient && session.user.id !== params.id) {
+    if (!patient && session.user.id !== resolvedParams.id) {
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
     }
 
@@ -53,7 +54,7 @@ export const GET = async (
       })
       .from(treatmentLogs)
       .innerJoin(treatments, eq(treatmentLogs.treatmentId, treatments.id))
-      .where(eq(treatments.patientId, params.id));
+      .where(eq(treatments.patientId, resolvedParams.id));
 
     return NextResponse.json(logs);
   } catch (error) {
@@ -67,8 +68,9 @@ export const GET = async (
 
 export const POST = async (
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) => {
+  const resolvedParams = await params;
   const session = await auth();
   if (!session || !session.user?.id) {
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
@@ -84,14 +86,14 @@ export const POST = async (
       .from(users)
       .where(
         and(
-          eq(users.id, params.id),
+          eq(users.id, resolvedParams.id),
           eq(users.userType, "PATIENT"),
           eq(users.organization, session.user.organization),
           eq(users.city, session.user.city)
         )
       );
 
-    if (!patient && session.user.id !== params.id) {
+    if (!patient && session.user.id !== resolvedParams.id) {
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
     }
 
@@ -102,7 +104,7 @@ export const POST = async (
       .where(
         and(
           eq(treatments.id, validated.treatmentId),
-          eq(treatments.patientId, params.id)
+          eq(treatments.patientId, resolvedParams.id)
         )
       );
 

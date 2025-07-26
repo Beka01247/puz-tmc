@@ -377,10 +377,11 @@ async function fetchPatientData(patientId: string) {
 }
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 const PatientDetailsPage = async ({ params }: Props) => {
+  const resolvedParams = await params;
   const session = await auth();
 
   if (!session || !session.user) {
@@ -409,7 +410,7 @@ const PatientDetailsPage = async ({ params }: Props) => {
     }
   }
 
-  const data = await fetchPatientData(params.id);
+  const data = await fetchPatientData(resolvedParams.id);
 
   // Ensure all timestamps are non-null
   const typeSafeData = {
@@ -453,7 +454,7 @@ const PatientDetailsPage = async ({ params }: Props) => {
       initialData={typeSafeData}
       userType={userType}
       userName={session.user.fullName}
-      patientId={params.id}
+      patientId={resolvedParams.id}
       userId={session.user.id}
     />
   );
