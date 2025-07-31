@@ -34,11 +34,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        // Reconstruct the frontend userType from database userType and doctorType
+        let frontendUserType: string = user[0].userType || "PATIENT";
+        if (user[0].userType === "DOCTOR") {
+          if (user[0].doctorType === "GENERAL") {
+            frontendUserType = "DISTRICT_DOCTOR";
+          } else if (user[0].doctorType === "SPECIALIST") {
+            frontendUserType = "SPECIALIST_DOCTOR";
+          }
+        }
+
         return {
           id: user[0].id,
           email: user[0].email,
           fullName: user[0].fullName,
-          userType: user[0].userType,
+          userType: frontendUserType,
           organization: user[0].organization,
           city: user[0].city,
           subdivision: user[0].subdivision,

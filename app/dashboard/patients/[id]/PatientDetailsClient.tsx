@@ -381,14 +381,18 @@ export const PatientDetailsClient = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {isFemale && (
               <>
-                <PregnancyCard patientId={patientId} isDoctor={isDoctor} />
-                {isDoctor && (
+                <PregnancyCard
+                  patientId={patientId}
+                  isDoctor={isDoctor}
+                  isProvider={isProvider}
+                />
+                {isProvider && (
                   <>
                     {initialData.fertileWomenData ? (
                       <FertileWomenRegisterCard
                         data={initialData.fertileWomenData}
                         patientId={patientId}
-                        isEditable={isDoctor}
+                        isEditable={isProvider}
                       />
                     ) : (
                       <Card>
@@ -458,7 +462,7 @@ export const PatientDetailsClient = ({
             <VaccinationsCard
               patientId={patientId}
               vaccinations={initialData.vaccinations}
-              isDoctor={isDoctor}
+              isDoctor={isProvider}
             />
           </div>
 

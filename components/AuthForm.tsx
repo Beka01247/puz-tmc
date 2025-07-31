@@ -110,44 +110,71 @@ const AuthForm = <T extends FieldValues>({
           className="space-y-6 w-full"
         >
           {!isSignIn && (
-            <FormField
-              control={form.control}
-              name={"userType" as Path<T>}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Тип пользователя</FormLabel>
-                  <Select
-                    onValueChange={(value: string) => {
-                      field.onChange(value);
-                      setSelectedUserType(value as UserType);
-                    }}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Выберите тип пользователя">
-                          {field.value
-                            ? userTypeLabels[field.value as UserType]
-                            : "Выберите тип пользователя"}
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(userTypeLabels).map(([type, label]) => (
-                        <SelectItem key={type} value={type}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <>
+              <FormField
+                control={form.control}
+                name={"userType" as Path<T>}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Тип пользователя</FormLabel>
+                    <Select
+                      onValueChange={(value: string) => {
+                        field.onChange(value);
+                        setSelectedUserType(value as UserType);
+                      }}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите тип пользователя">
+                            {field.value
+                              ? userTypeLabels[field.value as UserType]
+                              : "Выберите тип пользователя"}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {Object.entries(userTypeLabels).map(([type, label]) => (
+                          <SelectItem key={type} value={type}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name={"gender" as Path<T>}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Пол</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Выберите пол" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="МУЖСКОЙ">Мужской</SelectItem>
+                        <SelectItem value="ЖЕНСКИЙ">Женский</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
           )}
 
           {Object.keys(defaultValues)
-            .filter((field) => field !== "userType")
+            .filter((field) => field !== "userType" && field !== "gender")
             .map((field) =>
               shouldShowField(field) ? (
                 <FormField

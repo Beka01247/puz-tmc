@@ -19,7 +19,9 @@ export async function POST(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
@@ -75,11 +77,25 @@ export async function GET(
   try {
     const resolvedParams = await params;
     const session = await auth();
+
+    console.log("Pregnancy GET request:", {
+      patientId: resolvedParams.id,
+      userType: session?.user?.userType,
+      hasSession: !!session,
+      hasUserId: !!session?.user?.id,
+    });
+
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
     ) {
+      console.log("Pregnancy access denied:", {
+        userType: session?.user?.userType,
+        allowedTypes: ["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"],
+      });
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
@@ -95,6 +111,12 @@ export async function GET(
           eq(pregnancies.status, "active")
         )
       );
+
+    console.log("Pregnancy query result:", {
+      patientId: resolvedParams.id,
+      pregnancyFound: !!pregnancy,
+      pregnancy: pregnancy || null,
+    });
 
     return NextResponse.json(pregnancy || null);
   } catch (error) {
@@ -116,7 +138,9 @@ export async function DELETE(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },

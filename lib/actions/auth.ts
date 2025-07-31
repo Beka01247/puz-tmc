@@ -17,20 +17,31 @@ export const signInWithCredentials = async (
   const { email, password } = params;
 
   try {
-    const result = await signIn("credentials", {
+    await signIn("credentials", {
       email,
       password,
       redirect: false,
     });
 
-    if (result?.error) {
-      return { success: false, error: result.error };
-    }
-
+    // If signIn doesn't throw an error, it was successful
     return { success: true };
   } catch (error) {
-    console.log(error, "Signin error");
-    return { success: false, error: "Signin error" };
+    console.log("SignIn error:", error);
+
+    // Handle specific authentication errors
+    if (error && typeof error === "object" && "type" in error) {
+      if (error.type === "CredentialsSignin") {
+        return {
+          success: false,
+          error: "Неверный email или пароль",
+        };
+      }
+    }
+
+    return {
+      success: false,
+      error: "Ошибка входа в систему",
+    };
   }
 };
 
@@ -39,16 +50,36 @@ export async function signUp(params: AuthCredentials) {
     // Validate the input data
     const validatedData = signUpSchema.parse(params);
 
-    // Check if user already exists
-    const existingUser = await db
+    console.log("Attempting to sign up user:", {
+      email: validatedData.email,
+      iin: validatedData.iin,
+      userType: validatedData.userType,
+    });
+
+    // Check if user already exists (by email or IIN)
+    const existingUserByEmail = await db
       .select()
       .from(users)
       .where(eq(users.email, validatedData.email));
 
-    if (existingUser.length > 0) {
+    if (existingUserByEmail.length > 0) {
+      console.log("User with email already exists:", validatedData.email);
       return {
         success: false,
         error: "Пользователь с таким email уже существует",
+      };
+    }
+
+    const existingUserByIIN = await db
+      .select()
+      .from(users)
+      .where(eq(users.iin, validatedData.iin));
+
+    if (existingUserByIIN.length > 0) {
+      console.log("User with IIN already exists:", validatedData.iin);
+      return {
+        success: false,
+        error: "Пользователь с таким ИИН уже существует",
       };
     }
 
@@ -57,13 +88,18 @@ export async function signUp(params: AuthCredentials) {
 
     // Map frontend user types to database user types
     let dbUserType: (typeof userTypeEnum.enumValues)[number] = "PATIENT";
-    if (validatedData.userType === UserType.NURSE) {
+    let doctorType: "GENERAL" | "SPECIALIST" | null = null;
+
+    if (validatedData.userType === UserType.PATIENT) {
+      dbUserType = "PATIENT";
+    } else if (validatedData.userType === UserType.NURSE) {
       dbUserType = "NURSE";
-    } else if (
-      validatedData.userType === UserType.DISTRICT_DOCTOR ||
-      validatedData.userType === UserType.SPECIALIST_DOCTOR
-    ) {
+    } else if (validatedData.userType === UserType.DISTRICT_DOCTOR) {
       dbUserType = "DOCTOR";
+      doctorType = "GENERAL";
+    } else if (validatedData.userType === UserType.SPECIALIST_DOCTOR) {
+      dbUserType = "DOCTOR";
+      doctorType = "SPECIALIST";
     }
 
     // Create the user
@@ -76,6 +112,8 @@ export async function signUp(params: AuthCredentials) {
         city: validatedData.city,
         organization: validatedData.organization,
         userType: dbUserType,
+        doctorType: doctorType,
+        gender: validatedData.gender,
         department: validatedData.department,
         subdivision: validatedData.subdivision,
         district: validatedData.district,
@@ -97,16 +135,30 @@ export async function signUp(params: AuthCredentials) {
       success: true,
     };
   } catch (error) {
+    console.error("Sign up error:", error);
+
     if (error instanceof z.ZodError) {
+      console.log("Validation errors:", error.errors);
       return {
         success: false,
-        error: "Validation error",
+        error: "Ошибка валидации данных",
       };
+    }
+
+    // Check if it's a database constraint error
+    if (error && typeof error === "object" && "code" in error) {
+      if (error.code === "23505") {
+        // PostgreSQL unique constraint violation
+        return {
+          success: false,
+          error: "Пользователь с такими данными уже существует",
+        };
+      }
     }
 
     return {
       success: false,
-      error: "Something went wrong",
+      error: "Произошла ошибка при регистрации",
     };
   }
 }

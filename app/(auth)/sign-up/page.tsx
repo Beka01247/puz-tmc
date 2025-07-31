@@ -21,6 +21,7 @@ const SignUpPage = () => {
         city: "",
         organization: "",
         userType: "" as UserType,
+        gender: "МУЖСКОЙ" as const,
         department: "",
         subdivision: "",
         district: "",

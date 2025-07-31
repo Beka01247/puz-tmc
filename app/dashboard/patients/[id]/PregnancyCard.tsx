@@ -29,14 +29,22 @@ import { cn } from "@/lib/utils";
 interface PregnancyCardProps {
   patientId: string;
   isDoctor: boolean;
+  isProvider?: boolean; // Add this to handle both doctors and nurses
 }
 
-export const PregnancyCard = ({ patientId, isDoctor }: PregnancyCardProps) => {
+export const PregnancyCard = ({
+  patientId,
+  isDoctor,
+  isProvider = false,
+}: PregnancyCardProps) => {
   const [isPregnant, setIsPregnant] = useState(false);
   const [lmpDate, setLmpDate] = useState<Date>();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  // Use isProvider to allow both doctors and nurses to edit
+  const canEdit = isDoctor || isProvider;
 
   useEffect(() => {
     const fetchPregnancyStatus = async () => {
@@ -62,7 +70,7 @@ export const PregnancyCard = ({ patientId, isDoctor }: PregnancyCardProps) => {
   }, [patientId]);
 
   const handlePregnancyToggle = async (checked: boolean) => {
-    if (!isDoctor || updating) return;
+    if (!canEdit || updating) return;
 
     if (!checked) {
       setShowConfirmDialog(true);
@@ -96,7 +104,7 @@ export const PregnancyCard = ({ patientId, isDoctor }: PregnancyCardProps) => {
   };
 
   const handleLmpDateChange = async (date: Date | undefined) => {
-    if (!isDoctor || !date || updating) return;
+    if (!canEdit || !date || updating) return;
 
     setUpdating(true);
     const previousDate = lmpDate;
@@ -157,7 +165,7 @@ export const PregnancyCard = ({ patientId, isDoctor }: PregnancyCardProps) => {
               id="pregnancy"
               checked={isPregnant}
               onCheckedChange={handlePregnancyToggle}
-              disabled={!isDoctor || updating}
+              disabled={!canEdit || updating}
             />
             <label
               htmlFor="pregnancy"
@@ -203,7 +211,7 @@ export const PregnancyCard = ({ patientId, isDoctor }: PregnancyCardProps) => {
                       "w-full justify-start text-left font-normal",
                       !lmpDate && "text-muted-foreground"
                     )}
-                    disabled={!isDoctor || updating}
+                    disabled={!canEdit || updating}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {lmpDate

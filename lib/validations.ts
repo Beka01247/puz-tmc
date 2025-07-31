@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { UserType } from "@/constants/userTypes";
 
+// Define gender enum to match database schema
+export const Gender = z.enum(["МУЖСКОЙ", "ЖЕНСКИЙ"]);
+export type Gender = z.infer<typeof Gender>;
+
 export const signUpSchema = z
   .object({
     fullName: z.string().min(3, "ФИО должно содержать минимум 3 символа"),
@@ -14,6 +18,7 @@ export const signUpSchema = z
     city: z.string().min(2, "Город/область должен содержать минимум 2 символа"),
     organization: z.string().min(2, "Организация обязательна"),
     userType: z.nativeEnum(UserType),
+    gender: Gender,
     department: z.string().optional(),
     subdivision: z.string().optional(),
     district: z.string().optional(),

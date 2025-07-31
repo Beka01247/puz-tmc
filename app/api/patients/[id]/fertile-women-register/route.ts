@@ -13,7 +13,15 @@ export async function GET(
     const resolvedParams = await params;
     const session = await auth();
 
+    console.log("Fertile women register GET request:", {
+      patientId: resolvedParams.id,
+      userType: session?.user?.userType,
+      hasSession: !!session,
+      hasUserId: !!session?.user?.id,
+    });
+
     if (!session?.user) {
+      console.log("Fertile women register access denied: No session");
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
@@ -47,8 +55,12 @@ export async function PUT(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Only allow doctors to update the register
-    if (!session.user.userType?.includes("DOCTOR")) {
+    // Only allow doctors and nurses to update the register
+    if (
+      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
+    ) {
       return new NextResponse("Forbidden", { status: 403 });
     }
 
@@ -90,8 +102,12 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Only allow doctors to add to the register
-    if (!session.user.userType?.includes("DOCTOR")) {
+    // Only allow doctors and nurses to add to the register
+    if (
+      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
+    ) {
       return new NextResponse("Forbidden", { status: 403 });
     }
 
@@ -148,8 +164,12 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Only allow doctors to remove from the register
-    if (!session.user.userType?.includes("DOCTOR")) {
+    // Only allow doctors and nurses to remove from the register
+    if (
+      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
+    ) {
       return new NextResponse("Forbidden", { status: 403 });
     }
 
