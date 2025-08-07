@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { Eye, EyeOff } from "lucide-react";
 
 interface Props<T> extends FieldValues {
   schema: z.ZodType<T>;
@@ -53,6 +54,8 @@ const AuthForm = <T extends FieldValues>({
 
   const [selectedUserType, setSelectedUserType] =
     React.useState<UserType | null>(defaultValues.userType || null);
+
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const form: UseFormReturn<T> = useForm({
     resolver: zodResolver(schema),
@@ -187,14 +190,39 @@ const AuthForm = <T extends FieldValues>({
                         {FIELD_NAMES[field.name as keyof typeof FIELD_NAMES]}
                       </FormLabel>
                       <FormControl>
-                        <Input
-                          required
-                          type={
-                            FIELD_TYPES[field.name as keyof typeof FIELD_TYPES]
-                          }
-                          {...field}
-                          className="form-input"
-                        />
+                        {field.name === "password" ||
+                        field.name === "confirmPassword" ? (
+                          <div className="relative">
+                            <Input
+                              required
+                              type={showPassword ? "text" : "password"}
+                              {...field}
+                              className="form-input pr-12"
+                            />
+                            <button
+                              type="button"
+                              className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600"
+                              onClick={() => setShowPassword(!showPassword)}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="h-5 w-5" />
+                              ) : (
+                                <Eye className="h-5 w-5" />
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <Input
+                            required
+                            type={
+                              FIELD_TYPES[
+                                field.name as keyof typeof FIELD_TYPES
+                              ]
+                            }
+                            {...field}
+                            className="form-input"
+                          />
+                        )}
                       </FormControl>
                       <FormMessage />
                     </FormItem>
