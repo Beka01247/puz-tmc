@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import StatisticsModal from "@/components/StatisticsModal";
 import CriticalValuesModal from "@/components/CriticalValuesModal";
+import FilesViewModal from "@/components/FilesViewModal";
 import { monitoringItems } from "@/components/MonitoringPage";
 import { BluetoothIcon } from "@/components/ui/bluetooth-icon";
 
@@ -37,6 +38,9 @@ export const MonitoringTab = ({
   userType,
 }: MonitoringTabProps) => {
   const [selectedStatsItem, setSelectedStatsItem] = useState<
+    (typeof monitoringItems)[0] | null
+  >(null);
+  const [selectedFilesViewItem, setSelectedFilesViewItem] = useState<
     (typeof monitoringItems)[0] | null
   >(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -131,30 +135,44 @@ export const MonitoringTab = ({
                     <div
                       className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
                     >
-                      {latestMeasurement
-                        ? item.inputType === "double" &&
-                          latestMeasurement.value2
-                          ? `${latestMeasurement.value1}/${latestMeasurement.value2}`
-                          : latestMeasurement.value1
-                        : item.defaultValue}{" "}
+                      {item.inputType === "file"
+                        ? "Файлы"
+                        : latestMeasurement
+                          ? item.inputType === "double" &&
+                            latestMeasurement.value2
+                            ? `${latestMeasurement.value1}/${latestMeasurement.value2}`
+                            : latestMeasurement.value1
+                          : item.defaultValue}{" "}
                       {item.unit}
                     </div>
                     <p className="text-sm text-gray-500">
-                      Последнее измерение:{" "}
-                      {latestMeasurement
-                        ? new Date(
-                            latestMeasurement.createdAt
-                          ).toLocaleDateString("ru-RU")
-                        : "Нет данных"}
+                      {item.inputType === "file"
+                        ? "Посмотреть файлы в разделе 'Файлы'"
+                        : `Последнее измерение: ${
+                            latestMeasurement
+                              ? new Date(
+                                  latestMeasurement.createdAt
+                                ).toLocaleDateString("ru-RU")
+                              : "Нет данных"
+                          }`}
                     </p>
                     <div className="flex space-x-2 mt-4">
-                      <Button
-                        variant="outline"
-                        onClick={() => setSelectedStatsItem(item)}
-                      >
-                        Мониторинг
-                      </Button>
-                      {canSetCriticalValues && (
+                      {item.inputType === "file" ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => setSelectedFilesViewItem(item)}
+                        >
+                          Посмотреть
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => setSelectedStatsItem(item)}
+                        >
+                          Мониторинг
+                        </Button>
+                      )}
+                      {canSetCriticalValues && item.inputType !== "file" && (
                         <CriticalValuesModal
                           patientId={patientId}
                           measurementType={item.id}
@@ -187,9 +205,15 @@ export const MonitoringTab = ({
         </CardContent>
       </Card>
 
-      {selectedStatsItem && (
+      {selectedStatsItem && selectedStatsItem.inputType !== "file" && (
         <StatisticsModal
-          item={selectedStatsItem}
+          item={{
+            ...selectedStatsItem,
+            inputType: selectedStatsItem.inputType as
+              | "single"
+              | "double"
+              | "text",
+          }}
           measurements={measurements
             .filter((m) => m.type === selectedStatsItem.id)
             .map((m) => ({
@@ -197,6 +221,14 @@ export const MonitoringTab = ({
               value2: m.value2 || null,
             }))}
           onClose={() => setSelectedStatsItem(null)}
+        />
+      )}
+
+      {selectedFilesViewItem && selectedFilesViewItem.inputType === "file" && (
+        <FilesViewModal
+          title={selectedFilesViewItem.title}
+          onClose={() => setSelectedFilesViewItem(null)}
+          patientId={patientId}
         />
       )}
     </>

@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useState, useEffect, useMemo } from "react";
 import MeasurementModal from "@/components/MeasurementModal";
 import StatisticsModal from "@/components/StatisticsModal";
+import FileUploadModal from "@/components/FileUploadModal";
+import FilesViewModal from "@/components/FilesViewModal";
 
 interface MonitoringItem {
   id: string;
   title: string;
   unit: string;
-  inputType: "single" | "double" | "text";
+  inputType: "single" | "double" | "text" | "file";
   defaultValue: string;
 }
 
@@ -125,16 +127,16 @@ export const monitoringItems: MonitoringItem[] = [
   },
   {
     id: "ultrasound",
-    title: "УЗИ мобил",
+    title: "УЗИ",
     unit: "",
-    inputType: "text",
+    inputType: "file",
     defaultValue: "Нет данных",
   },
   {
     id: "xray",
-    title: "Рентген мобил",
+    title: "Рентген",
     unit: "",
-    inputType: "text",
+    inputType: "file",
     defaultValue: "Нет данных",
   },
   {
@@ -145,14 +147,14 @@ export const monitoringItems: MonitoringItem[] = [
     defaultValue: "0",
   },
   {
-    id: "inr",
+    id: "ecg",
     title: "ЭКГ",
     unit: "",
     inputType: "single",
     defaultValue: "0",
   },
   {
-    id: "inr",
+    id: "bmi",
     title: "Индекс массы тела (ИМТ)",
     unit: "",
     inputType: "single",
@@ -163,6 +165,10 @@ export const monitoringItems: MonitoringItem[] = [
 const MonitoringPage = ({ session }: MonitoringPageProps) => {
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   const [selectedStatsItem, setSelectedStatsItem] =
+    useState<MonitoringItem | null>(null);
+  const [selectedFileUploadItem, setSelectedFileUploadItem] =
+    useState<MonitoringItem | null>(null);
+  const [selectedFilesViewItem, setSelectedFilesViewItem] =
     useState<MonitoringItem | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -216,11 +222,19 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   }, [measurements]);
 
   const handleAddMeasurement = (item: MonitoringItem) => {
-    setSelectedItem(item);
+    if (item.inputType === "file") {
+      setSelectedFileUploadItem(item);
+    } else {
+      setSelectedItem(item);
+    }
   };
 
   const handleStatsClick = (item: MonitoringItem) => {
-    setSelectedStatsItem(item);
+    if (item.inputType === "file") {
+      setSelectedFilesViewItem(item);
+    } else {
+      setSelectedStatsItem(item);
+    }
   };
 
   const handleModalClose = () => {
@@ -229,6 +243,20 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
 
   const handleStatsModalClose = () => {
     setSelectedStatsItem(null);
+  };
+
+  const handleFileUploadModalClose = () => {
+    setSelectedFileUploadItem(null);
+  };
+
+  const handleFilesViewModalClose = () => {
+    setSelectedFilesViewItem(null);
+  };
+
+  const handleFileUploadComplete = () => {
+    // Refresh data if needed
+    // For file uploads, we don't need to refresh measurements
+    // but we might want to update file counts in the future
   };
 
   const handleModalSubmit = async (data: {
@@ -278,6 +306,14 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   };
 
   const getLatestMeasurement = (itemId: string) => {
+    // For file-based items, we don't use measurements, they use files
+    if (itemId === "ultrasound" || itemId === "xray") {
+      return {
+        value: "Файлы",
+        date: null,
+      };
+    }
+
     // Find the latest measurement for this type by sorting by createdAt desc
     const measurement = measurements
       .filter((m) => m.type === itemId)
@@ -344,8 +380,9 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
                       {value} {item.unit}
                     </div>
                     <p className="text-sm text-gray-400">
-                      Последнее измерение:{" "}
-                      {date ? formatDate(date) : "Нет данных"}
+                      {item.inputType === "file"
+                        ? "Нажмите '+' для загрузки файла"
+                        : `Последнее измерение: ${date ? formatDate(date) : "Нет данных"}`}
                     </p>
                     <Button
                       className="mt-4 hover:bg-blue-400 bg-blue-200"
@@ -359,7 +396,7 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
                       variant="outline"
                       onClick={() => handleStatsClick(item)}
                     >
-                      Статистика
+                      {item.inputType === "file" ? "Посмотреть" : "Статистика"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -368,20 +405,44 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
           </div>
         )}
 
-        {selectedItem && (
+        {selectedItem && selectedItem.inputType !== "file" && (
           <MeasurementModal
-            item={selectedItem}
+            item={{
+              ...selectedItem,
+              inputType: selectedItem.inputType as "single" | "double" | "text",
+            }}
             onClose={handleModalClose}
             onSubmit={handleModalSubmit}
           />
         )}
-        {selectedStatsItem && (
+        {selectedStatsItem && selectedStatsItem.inputType !== "file" && (
           <StatisticsModal
-            item={selectedStatsItem}
+            item={{
+              ...selectedStatsItem,
+              inputType: selectedStatsItem.inputType as
+                | "single"
+                | "double"
+                | "text",
+            }}
             measurements={measurements.filter(
               (m) => m.type === selectedStatsItem.id
             )}
             onClose={handleStatsModalClose}
+          />
+        )}
+        {selectedFileUploadItem && (
+          <FileUploadModal
+            title={selectedFileUploadItem.title}
+            onClose={handleFileUploadModalClose}
+            onSubmit={handleFileUploadComplete}
+            patientId={session.user.id}
+          />
+        )}
+        {selectedFilesViewItem && (
+          <FilesViewModal
+            title={selectedFilesViewItem.title}
+            onClose={handleFilesViewModalClose}
+            patientId={session.user.id}
           />
         )}
       </div>

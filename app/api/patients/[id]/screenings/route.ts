@@ -29,7 +29,9 @@ export async function POST(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !["DOCTOR", "DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
@@ -126,7 +128,9 @@ export async function PATCH(
     // Check authorization based on status update type
     if (
       (status === "CONFIRMED" || status === "REJECTED") &&
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !["DOCTOR", "DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
+        session.user.userType
+      )
     ) {
       return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }

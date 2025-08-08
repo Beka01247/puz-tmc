@@ -67,7 +67,12 @@ export const ScreeningCard = ({
 }: ScreeningCardProps) => {
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
 
-  const isProvider = ["DOCTOR", "NURSE"].includes(userType || "");
+  const isProvider = [
+    "DOCTOR",
+    "DISTRICT_DOCTOR",
+    "SPECIALIST_DOCTOR",
+    "NURSE",
+  ].includes(userType || "");
 
   const handleStatusUpdate = async (
     patientScreeningId: string,
