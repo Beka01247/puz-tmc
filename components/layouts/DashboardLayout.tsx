@@ -33,7 +33,7 @@ interface DashboardLayoutProps {
 
 const doctorNavItems: NavItem[] = [
   { title: "Аккаунт", href: "/dashboard" },
-  { title: "Мониторинг", href: "/dashboard/patients" },
+  { title: "Список пациентов", href: "/dashboard/patients" },
   { title: "Обследование", href: "/examination" },
   { title: "Статистика", href: "/statistics" },
   { title: "Приемы", href: "/appointments" },
@@ -44,6 +44,7 @@ const nurseNavItems: NavItem[] = [
   { title: "Пациенты", href: "/dashboard/patients" },
   { title: "Обследование", href: "/examination" },
   { title: "Статистика", href: "/statistics" },
+  { title: "Приемы", href: "/appointments" },
 ];
 
 // Function to create patient nav items with chat link containing their ID

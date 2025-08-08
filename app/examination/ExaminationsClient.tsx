@@ -57,7 +57,7 @@ export const ExaminationsClient = ({
     "Вакцинация",
     "Беременные",
     "ЖФВ",
-    "ДУ",
+    "ДН",
     "ПУЗ",
   ];
 
@@ -222,7 +222,7 @@ export const ExaminationsClient = ({
                           </Link>
                         </Button>
                         {(activeTab === "Беременные" ||
-                          activeTab === "ДУ" ||
+                          activeTab === "ДН" ||
                           activeTab === "ЖФВ" ||
                           activeTab === "ПУЗ") && (
                           <Button

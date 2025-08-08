@@ -31,7 +31,7 @@ export const EditRiskGroupsModal = ({
   onSave,
 }: EditRiskGroupsModalProps) => {
   const [riskGroups, setRiskGroups] = useState<RiskGroup[]>(initialRiskGroups);
-  const ALLOWED_RISK_GROUPS = ["ПУЗ", "ДУ"];
+  const ALLOWED_RISK_GROUPS = ["ПУЗ", "ДН"];
 
   const handleAddRiskGroup = async (groupName: string) => {
     // If there's an existing group, remove it first

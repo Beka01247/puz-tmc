@@ -80,7 +80,7 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
         ? sql`STRING_AGG(DISTINCT CASE WHEN ${pv.status} = 'CONFIRMED' THEN ${pv.name} END, ', ')`
         : sql`NULL`,
     pregnancyLmp: riskGroup === "Беременные" ? pg.lmp : sql`NULL`,
-    invitationId: ["ДУ", "ПУЗ", "Беременные", "ЖФВ"].includes(riskGroup)
+    invitationId: ["ДН", "ПУЗ", "Беременные", "ЖФВ"].includes(riskGroup)
       ? inv.id
       : sql`NULL`,
   };
@@ -167,7 +167,7 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
           )
         );
 
-    case "ДУ":
+    case "ДН":
     case "ПУЗ":
       return db
         .select(baseSelect)
@@ -218,7 +218,7 @@ export async function getPatients(filters: ExaminationFilters) {
 
     if (filters.riskGroup === "Беременные") {
       groupByColumns.push(pregnancies.lmp, invitations.id);
-    } else if (["ДУ", "ПУЗ", "ЖФВ"].includes(filters.riskGroup)) {
+    } else if (["ДН", "ПУЗ", "ЖФВ"].includes(filters.riskGroup)) {
       groupByColumns.push(invitations.id);
     }
 
@@ -229,7 +229,7 @@ export async function getPatients(filters: ExaminationFilters) {
       name: patient.name,
       age: calculateAge(patient.iin),
       diagnosis: (patient.diagnoses as string) || "Нет диагнозов",
-      isInvited: ["ДУ", "ПУЗ", "ЖФВ", "Беременные"].includes(filters.riskGroup)
+      isInvited: ["ДН", "ПУЗ", "ЖФВ", "Беременные"].includes(filters.riskGroup)
         ? !!patient.invitationId
         : undefined,
       completedScreenings:

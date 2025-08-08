@@ -296,7 +296,11 @@ export const PatientDetailsClient = ({
                 <div className="col-span-1 flex items-center gap-2">
                   <strong>ФИО:</strong> {initialData.patient.fullName}
                   {isProvider && (
-                    <Button size="sm" variant="outline" asChild>
+                    <Button
+                      size="sm"
+                      className="bg-yellow-200 hover:bg-yellow-400 text-yellow-900 border-black font-medium"
+                      asChild
+                    >
                       <Link href={`/chat?patientId=${patientId}`}>Чат</Link>
                     </Button>
                   )}

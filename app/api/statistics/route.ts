@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
         Беременные: 0,
         ЖВФ: 0,
         ПУЗ: 0,
-        ДУ: 0,
+        ДН: 0,
         Другие: 0,
       };
 
@@ -157,8 +157,8 @@ export async function GET(request: NextRequest) {
             groupCounts["ПУЗ"]++;
             belongsToAnyGroup = true;
           }
-          if (userGroups.includes("ДУ")) {
-            groupCounts["ДУ"]++;
+          if (userGroups.includes("ДН")) {
+            groupCounts["ДН"]++;
             belongsToAnyGroup = true;
           }
         }
@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Initialize result structure
-    const groups = ["ПУЗ", "ДУ", "Беременные", "ЖВФ", "Все"];
+    const groups = ["ПУЗ", "ДН", "Беременные", "ЖВФ", "Все"];
     const statistics = {
       bloodPressure: {} as Record<string, number>,
       pulse: {} as Record<string, number>,

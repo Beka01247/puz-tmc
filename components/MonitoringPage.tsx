@@ -413,7 +413,7 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
                       variant="outline"
                       onClick={() => handleStatsClick(item)}
                     >
-                      {item.inputType === "file" ? "Посмотреть" : "Статистика"}
+                      {item.inputType === "file" ? "Посмотреть" : "График"}
                     </Button>
                   </CardContent>
                 </Card>

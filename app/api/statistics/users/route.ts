@@ -168,10 +168,10 @@ export async function GET(request: NextRequest) {
               riskGroupMap.has(user.id) &&
               riskGroupMap.get(user.id).includes("ПУЗ")
             );
-          } else if (group === "ДУ") {
+          } else if (group === "ДН") {
             return (
               riskGroupMap.has(user.id) &&
-              riskGroupMap.get(user.id).includes("ДУ")
+              riskGroupMap.get(user.id).includes("ДН")
             );
           }
 

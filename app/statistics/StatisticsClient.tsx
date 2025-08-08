@@ -172,7 +172,7 @@ export const StatisticsClient = ({
   const renderStatisticsTable = () => {
     if (!statistics) return null;
 
-    const groups = ["ПУЗ", "ДУ", "Беременные", "ЖВФ", "Все"];
+    const groups = ["ПУЗ", "ДН", "Беременные", "ЖВФ", "Все"];
 
     const measurementTypeLabels = [
       { key: "bloodPressure", label: "АД", apiKey: "blood-pressure" },

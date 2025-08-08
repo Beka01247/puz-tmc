@@ -16,7 +16,7 @@ const Home = async () => {
       <section className="flex flex-col md:flex-row items-center gap-8 py-12">
         <div className="flex-1 space-y-6">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
-            Sapa Telemed — Ваше здоровье онлайн
+            &ldquo;Sapa Telemed&rdquo; — Ваше здоровье онлайн
           </h1>
           <p className="text-lg text-gray-600">
             Получайте профессиональные медицинские приемы, управляйте своими

@@ -8,7 +8,7 @@ import { z } from "zod";
 
 const querySchema = z.object({
   riskGroup: z
-    .enum(["Скрининг", "Вакцинация", "Беременные", "ЖФВ", "ДУ", "ПУЗ"])
+    .enum(["Скрининг", "Вакцинация", "Беременные", "ЖФВ", "ДН", "ПУЗ"])
     .default("Скрининг")
     .transform((val) => decodeURIComponent(val)),
   age: z.coerce.number().min(0).max(120).optional(),
