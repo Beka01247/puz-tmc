@@ -16,6 +16,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { useState, useEffect } from "react";
 
 ChartJS.register(
   CategoryScale,
@@ -43,17 +44,56 @@ interface Measurement {
   createdAt: string;
 }
 
+interface CriticalValue {
+  id: string;
+  measurementType: string;
+  minValue: string | null;
+  maxValue: string | null;
+  minValue2: string | null;
+  maxValue2: string | null;
+  notes: string | null;
+}
+
 interface StatisticsModalProps {
   item: MonitoringItem;
   measurements: Measurement[];
+  patientId: string;
   onClose: () => void;
 }
 
 const StatisticsModal = ({
   item,
   measurements,
+  patientId,
   onClose,
 }: StatisticsModalProps) => {
+  const [criticalValues, setCriticalValues] = useState<CriticalValue | null>(
+    null
+  );
+
+  useEffect(() => {
+    const fetchCriticalValues = async () => {
+      try {
+        const response = await fetch(
+          `/api/critical-values?measurementType=${item.id}&patientId=${patientId}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+
+          if (data.length > 0) {
+            setCriticalValues(data[0]);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching critical values:", error);
+      }
+    };
+
+    if (item.id && patientId) {
+      fetchCriticalValues();
+    }
+  }, [item.id, patientId]);
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleString("ru-RU", {
@@ -68,6 +108,48 @@ const StatisticsModal = ({
   const sortedMeasurements = [...measurements].sort(
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
+
+  // Check if a measurement is critical
+  const isCriticalMeasurement = (measurement: Measurement): boolean => {
+    if (!criticalValues) {
+      return false;
+    }
+
+    const value1 = parseFloat(measurement.value1);
+    const value2 = measurement.value2 ? parseFloat(measurement.value2) : null;
+
+    // Check first value (systolic for blood pressure, main value for others)
+    if (
+      criticalValues.minValue &&
+      value1 < parseFloat(criticalValues.minValue)
+    ) {
+      return true;
+    }
+    if (
+      criticalValues.maxValue &&
+      value1 > parseFloat(criticalValues.maxValue)
+    ) {
+      return true;
+    }
+
+    // Check second value if it exists (diastolic for blood pressure)
+    if (item.inputType === "double" && value2 !== null) {
+      if (
+        criticalValues.minValue2 &&
+        value2 < parseFloat(criticalValues.minValue2)
+      ) {
+        return true;
+      }
+      if (
+        criticalValues.maxValue2 &&
+        value2 > parseFloat(criticalValues.maxValue2)
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  };
 
   // Prepare chart data
   const chartData = {
@@ -84,6 +166,15 @@ const StatisticsModal = ({
         borderColor: "rgb(75, 192, 192)",
         backgroundColor: "rgba(75, 192, 192, 0.2)",
         tension: 0.1,
+        pointBackgroundColor: sortedMeasurements.map((m) =>
+          isCriticalMeasurement(m) ? "rgb(255, 0, 0)" : "rgb(75, 192, 192)"
+        ),
+        pointBorderColor: sortedMeasurements.map((m) =>
+          isCriticalMeasurement(m) ? "rgb(255, 0, 0)" : "rgb(75, 192, 192)"
+        ),
+        pointRadius: sortedMeasurements.map((m) =>
+          isCriticalMeasurement(m) ? 8 : 3
+        ),
       },
       ...(item.inputType === "double" && item.id !== "blood-pressure"
         ? [
@@ -95,6 +186,19 @@ const StatisticsModal = ({
               borderColor: "rgb(255, 99, 132)",
               backgroundColor: "rgba(255, 99, 132, 0.2)",
               tension: 0.1,
+              pointBackgroundColor: sortedMeasurements.map((m) =>
+                isCriticalMeasurement(m)
+                  ? "rgb(255, 0, 0)"
+                  : "rgb(255, 99, 132)"
+              ),
+              pointBorderColor: sortedMeasurements.map((m) =>
+                isCriticalMeasurement(m)
+                  ? "rgb(255, 0, 0)"
+                  : "rgb(255, 99, 132)"
+              ),
+              pointRadius: sortedMeasurements.map((m) =>
+                isCriticalMeasurement(m) ? 8 : 3
+              ),
             },
           ]
         : []),
@@ -171,7 +275,11 @@ const StatisticsModal = ({
                 <div className="max-h-40 overflow-y-auto">
                   <ul className="space-y-2">
                     {sortedMeasurements.map((m) => (
-                      <li key={m.id} className="text-sm">
+                      <li
+                        key={m.id}
+                        className={`text-sm ${isCriticalMeasurement(m) ? "text-red-600 font-semibold" : ""}`}
+                      >
+                        {isCriticalMeasurement(m) && "⚠️ "}
                         {formatDate(m.createdAt)}:{" "}
                         {item.id === "blood-pressure" && m.value2
                           ? `${m.value1}/${m.value2}`
@@ -179,6 +287,7 @@ const StatisticsModal = ({
                             ? `${m.value1}/${m.value2}`
                             : m.value1}{" "}
                         {item.unit}
+                        {isCriticalMeasurement(m) && " (критическое значение)"}
                       </li>
                     ))}
                   </ul>

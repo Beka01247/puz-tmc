@@ -82,7 +82,7 @@ const DashboardPatientsClient = () => {
               <TableHead>ФИО</TableHead>
               <TableHead>Возраст</TableHead>
               <TableHead>Диагноз</TableHead>
-              <TableHead>Пределы</TableHead>
+              <TableHead>Критический показатель</TableHead>
               <TableHead>Действия</TableHead>
             </TableRow>
           </TableHeader>

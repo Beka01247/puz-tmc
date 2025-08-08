@@ -240,6 +240,7 @@ export const MonitoringTab = ({
               ...m,
               value2: m.value2 || null,
             }))}
+          patientId={patientId}
           onClose={() => setSelectedStatsItem(null)}
         />
       )}

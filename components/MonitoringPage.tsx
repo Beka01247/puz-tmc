@@ -444,6 +444,7 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
             measurements={measurements.filter(
               (m) => m.type === selectedStatsItem.id
             )}
+            patientId={session.user.id || ""}
             onClose={handleStatsModalClose}
           />
         )}
