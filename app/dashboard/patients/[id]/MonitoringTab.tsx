@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import StatisticsModal from "@/components/StatisticsModal";
 import CriticalValuesModal from "@/components/CriticalValuesModal";
 import FilesViewModal from "@/components/FilesViewModal";
+import ECGViewModal from "@/components/ECGViewModal";
 import { monitoringItems } from "@/components/MonitoringPage";
 import { BluetoothIcon } from "@/components/ui/bluetooth-icon";
 
@@ -30,17 +31,22 @@ interface MonitoringTabProps {
   measurements: Measurement[];
   patientId: string;
   userType: string;
+  patientIIN?: string;
 }
 
 export const MonitoringTab = ({
   measurements,
   patientId,
   userType,
+  patientIIN,
 }: MonitoringTabProps) => {
   const [selectedStatsItem, setSelectedStatsItem] = useState<
     (typeof monitoringItems)[0] | null
   >(null);
   const [selectedFilesViewItem, setSelectedFilesViewItem] = useState<
+    (typeof monitoringItems)[0] | null
+  >(null);
+  const [selectedECGViewItem, setSelectedECGViewItem] = useState<
     (typeof monitoringItems)[0] | null
   >(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -135,32 +141,42 @@ export const MonitoringTab = ({
                     <div
                       className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
                     >
-                      {item.inputType === "file"
-                        ? "Файлы"
-                        : latestMeasurement
-                          ? item.inputType === "double" &&
-                            latestMeasurement.value2
-                            ? `${latestMeasurement.value1}/${latestMeasurement.value2}`
-                            : latestMeasurement.value1
-                          : item.defaultValue}{" "}
+                      {item.id === "ecg"
+                        ? "ЭКГ"
+                        : item.inputType === "file"
+                          ? "Файлы"
+                          : latestMeasurement
+                            ? item.inputType === "double" &&
+                              latestMeasurement.value2
+                              ? `${latestMeasurement.value1}/${latestMeasurement.value2}`
+                              : latestMeasurement.value1
+                            : item.defaultValue}{" "}
                       {item.unit}
                     </div>
                     <p className="text-sm text-gray-500">
-                      {item.inputType === "file"
-                        ? "Посмотреть файлы в разделе 'Файлы'"
-                        : `Последнее измерение: ${
-                            latestMeasurement
-                              ? new Date(
-                                  latestMeasurement.createdAt
-                                ).toLocaleDateString("ru-RU")
-                              : "Нет данных"
-                          }`}
+                      {item.id === "ecg"
+                        ? "Данные ЭКГ из внешней системы"
+                        : item.inputType === "file"
+                          ? "Посмотреть файлы в разделе 'Файлы'"
+                          : `Последнее измерение: ${
+                              latestMeasurement
+                                ? new Date(
+                                    latestMeasurement.createdAt
+                                  ).toLocaleDateString("ru-RU")
+                                : "Нет данных"
+                            }`}
                     </p>
                     <div className="flex space-x-2 mt-4">
                       {item.inputType === "file" ? (
                         <Button
                           variant="outline"
-                          onClick={() => setSelectedFilesViewItem(item)}
+                          onClick={() => {
+                            if (item.id === "ecg") {
+                              setSelectedECGViewItem(item);
+                            } else {
+                              setSelectedFilesViewItem(item);
+                            }
+                          }}
                         >
                           Посмотреть
                         </Button>
@@ -229,6 +245,13 @@ export const MonitoringTab = ({
           title={selectedFilesViewItem.title}
           onClose={() => setSelectedFilesViewItem(null)}
           patientId={patientId}
+        />
+      )}
+
+      {selectedECGViewItem && (
+        <ECGViewModal
+          onClose={() => setSelectedECGViewItem(null)}
+          patientIIN={patientIIN}
         />
       )}
     </>

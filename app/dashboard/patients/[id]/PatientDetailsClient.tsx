@@ -534,6 +534,7 @@ export const PatientDetailsClient = ({
               measurements={initialData.measurements}
               patientId={patientId}
               userType={userType.toString()}
+              patientIIN={initialData.patient.iin}
             />
           )}
 

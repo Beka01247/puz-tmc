@@ -9,6 +9,7 @@ import MeasurementModal from "@/components/MeasurementModal";
 import StatisticsModal from "@/components/StatisticsModal";
 import FileUploadModal from "@/components/FileUploadModal";
 import FilesViewModal from "@/components/FilesViewModal";
+import ECGViewModal from "@/components/ECGViewModal";
 
 interface MonitoringItem {
   id: string;
@@ -40,6 +41,7 @@ interface Session {
     fullName: string;
     userType: string;
     id?: string;
+    iin: string;
   };
 }
 
@@ -150,8 +152,8 @@ export const monitoringItems: MonitoringItem[] = [
     id: "ecg",
     title: "ЭКГ",
     unit: "",
-    inputType: "single",
-    defaultValue: "0",
+    inputType: "file",
+    defaultValue: "ЭКГ",
   },
   {
     id: "bmi",
@@ -169,6 +171,8 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   const [selectedFileUploadItem, setSelectedFileUploadItem] =
     useState<MonitoringItem | null>(null);
   const [selectedFilesViewItem, setSelectedFilesViewItem] =
+    useState<MonitoringItem | null>(null);
+  const [selectedECGViewItem, setSelectedECGViewItem] =
     useState<MonitoringItem | null>(null);
   const [measurements, setMeasurements] = useState<Measurement[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -222,7 +226,10 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   }, [measurements]);
 
   const handleAddMeasurement = (item: MonitoringItem) => {
-    if (item.inputType === "file") {
+    if (item.id === "ecg") {
+      // ECG doesn't have an add functionality, it only views external data
+      return;
+    } else if (item.inputType === "file") {
       setSelectedFileUploadItem(item);
     } else {
       setSelectedItem(item);
@@ -230,7 +237,9 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   };
 
   const handleStatsClick = (item: MonitoringItem) => {
-    if (item.inputType === "file") {
+    if (item.id === "ecg") {
+      setSelectedECGViewItem(item);
+    } else if (item.inputType === "file") {
       setSelectedFilesViewItem(item);
     } else {
       setSelectedStatsItem(item);
@@ -251,6 +260,10 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
 
   const handleFilesViewModalClose = () => {
     setSelectedFilesViewItem(null);
+  };
+
+  const handleECGViewModalClose = () => {
+    setSelectedECGViewItem(null);
   };
 
   const handleFileUploadComplete = () => {
@@ -380,19 +393,23 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
                       {value} {item.unit}
                     </div>
                     <p className="text-sm text-gray-400">
-                      {item.inputType === "file"
-                        ? "Нажмите '+' для загрузки файла"
-                        : `Последнее измерение: ${date ? formatDate(date) : "Нет данных"}`}
+                      {item.id === "ecg"
+                        ? "Данные ЭКГ из внешней системы"
+                        : item.inputType === "file"
+                          ? "Нажмите '+' для загрузки файла"
+                          : `Последнее измерение: ${date ? formatDate(date) : "Нет данных"}`}
                     </p>
+                    {item.id !== "ecg" && (
+                      <Button
+                        className="mt-4 hover:bg-blue-400 bg-blue-200"
+                        variant="outline"
+                        onClick={() => handleAddMeasurement(item)}
+                      >
+                        +
+                      </Button>
+                    )}
                     <Button
-                      className="mt-4 hover:bg-blue-400 bg-blue-200"
-                      variant="outline"
-                      onClick={() => handleAddMeasurement(item)}
-                    >
-                      +
-                    </Button>
-                    <Button
-                      className="mt-4 ml-4 hover:bg-blue-400"
+                      className={`mt-4 ${item.id !== "ecg" ? "ml-4" : ""} hover:bg-blue-400`}
                       variant="outline"
                       onClick={() => handleStatsClick(item)}
                     >
@@ -443,6 +460,12 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
             title={selectedFilesViewItem.title}
             onClose={handleFilesViewModalClose}
             patientId={session.user.id}
+          />
+        )}
+        {selectedECGViewItem && (
+          <ECGViewModal
+            onClose={handleECGViewModalClose}
+            patientIIN={session.user.iin}
           />
         )}
       </div>
