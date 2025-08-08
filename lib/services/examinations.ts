@@ -10,7 +10,7 @@ import {
   patientVaccinations,
   pregnancies,
 } from "@/db/schema";
-import { and, eq, sql, SQL, ilike } from "drizzle-orm";
+import { and, eq, sql, SQL, ilike, isNull } from "drizzle-orm";
 import { calculateAgeFromIIN } from "@/lib/utils/ageCalculator";
 
 export interface ExaminationFilters {
@@ -136,7 +136,10 @@ function buildScreeningsQuery(filters: ExaminationFilters) {
         .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
         .innerJoin(
           fertileWomenRegister,
-          and(eq(fertileWomenRegister.userId, users.id))
+          and(
+            eq(fertileWomenRegister.userId, users.id),
+            isNull(fertileWomenRegister.deregistrationDate)
+          )
         )
         .leftJoin(
           inv,
