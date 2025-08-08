@@ -10,7 +10,8 @@ import {
   patientVaccinations,
   pregnancies,
 } from "@/db/schema";
-import { SQL, sql, eq, and, ilike } from "drizzle-orm";
+import { and, eq, sql, SQL, ilike } from "drizzle-orm";
+import { calculateAgeFromIIN } from "@/lib/utils/ageCalculator";
 
 export interface ExaminationFilters {
   organization: string;
@@ -19,21 +20,8 @@ export interface ExaminationFilters {
   age?: number;
 }
 
-function calculateAge(iin: string, currentDate: Date = new Date()): number {
-  const year = parseInt(iin.slice(0, 2), 10);
-  const month = parseInt(iin.slice(2, 4), 10) - 1;
-  const day = parseInt(iin.slice(4, 6), 10);
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const birthDate = new Date(fullYear, month, day);
-  let age = currentDate.getFullYear() - birthDate.getFullYear();
-  const monthDiff = currentDate.getMonth() - birthDate.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && currentDate.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-  return age;
+function calculateAge(iin: string): number {
+  return calculateAgeFromIIN(iin);
 }
 
 function buildAgeFilter(age: number): SQL {

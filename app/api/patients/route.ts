@@ -5,6 +5,7 @@ import { eq, and, ilike } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { calculateAgeFromIIN } from "@/lib/utils/ageCalculator";
 import { isMedicalProvider } from "@/lib/utils/auth";
 
 const querySchema = z.object({
@@ -19,42 +20,8 @@ const querySchema = z.object({
   ),
 });
 
-function isValidDate(year: number, month: number, day: number): boolean {
-  if (month < 1 || month > 12 || day < 1 || day > 31) {
-    return false;
-  }
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const date = new Date(fullYear, month - 1, day);
-  return (
-    date.getFullYear() === fullYear &&
-    date.getMonth() === month - 1 &&
-    date.getDate() === day
-  );
-}
-
-function calculateAge(
-  iin: string,
-  currentDate: Date = new Date()
-): number | null {
-  const year = parseInt(iin.slice(0, 2), 10);
-  const month = parseInt(iin.slice(2, 4), 10);
-  const day = parseInt(iin.slice(4, 6), 10);
-
-  if (!isValidDate(year, month, day)) {
-    return null;
-  }
-
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const birthDate = new Date(fullYear, month - 1, day);
-  let age = currentDate.getFullYear() - birthDate.getFullYear();
-  const monthDiff = currentDate.getMonth() - birthDate.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && currentDate.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-  return age;
+function calculateAge(iin: string): number | null {
+  return calculateAgeFromIIN(iin) || null;
 }
 
 export async function GET(request: Request) {

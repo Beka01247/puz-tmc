@@ -13,6 +13,11 @@ import {
 } from "@/lib/utils/formatters";
 import type { UserInfo } from "@/lib/services/userService";
 import type { MedicalActivity } from "@/lib/services/medicalActivityService";
+import {
+  calculateAgeFromIIN,
+  getBirthDateFromIIN,
+  formatAge,
+} from "@/lib/utils/ageCalculator";
 import type { Treatment } from "@/lib/services/treatmentService";
 
 interface DashboardData {
@@ -90,8 +95,13 @@ const DashboardClient = () => {
               <span className="font-semibold">ИИН:</span> {userInfo.iin}
             </p>
             <p>
+              <span className="font-semibold">Возраст:</span>{" "}
+              {formatAge(calculateAgeFromIIN(userInfo.iin))}
+            </p>
+            <p>
               <span className="font-semibold">Дата рождения:</span>{" "}
-              {userInfo.dateOfBirth || "Не указана"}
+              {getBirthDateFromIIN(userInfo.iin)?.toLocaleDateString("ru-RU") ||
+                "Не указана"}
             </p>
             <p>
               <span className="font-semibold">Пол:</span>{" "}

@@ -6,9 +6,13 @@ import Link from "next/link";
 import DashboardLayout from "@/components/layouts/DashboardLayout";
 import { UserType } from "@/constants/userTypes";
 import { ScreeningCard } from "./ScreeningCard";
-import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  calculateAgeFromIIN,
+  getBirthDateFromIIN,
+  formatAge,
+} from "@/lib/utils/ageCalculator";
 import { isDoctorRole, isMedicalProvider } from "@/lib/utils/auth";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConsultationsTab } from "./ConsultationsTab";
@@ -174,23 +178,8 @@ interface InitialData {
 }
 
 // Utility functions
-const calculateAge = (iin: string, currentDate = new Date()): string => {
-  const year = parseInt(iin.slice(0, 2), 10);
-  const month = parseInt(iin.slice(2, 4), 10) - 1;
-  const day = parseInt(iin.slice(4, 6), 10);
-
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const birthDate = new Date(fullYear, month, day);
-
-  const ageInMilliseconds = currentDate.getTime() - birthDate.getTime();
-  const ageInYears = Math.floor(ageInMilliseconds / 31557600000); // Approximate milliseconds in a year
-
-  return `${ageInYears} лет`;
-};
-
-const formatDate = (date: string | null): string => {
-  if (!date) return "Не указана";
-  return format(new Date(date), "dd.MM.yyyy");
+const calculateAge = (iin: string): string => {
+  return formatAge(calculateAgeFromIIN(iin));
 };
 
 const formatGender = (
@@ -304,12 +293,14 @@ export const PatientDetailsClient = ({
                   )}
                 </div>
                 <div className="col-span-1">
-                  <strong>Возраст:</strong>{" "}
-                  {calculateAge(initialData.patient.iin)}
+                  <strong>Дата рождения:</strong>{" "}
+                  {getBirthDateFromIIN(
+                    initialData.patient.iin
+                  )?.toLocaleDateString("ru-RU") || "Не указана"}
                 </div>
                 <div className="col-span-1">
-                  <strong>Дата рождения:</strong>{" "}
-                  {formatDate(initialData.patient.dateOfBirth)}
+                  <strong>Возраст:</strong>{" "}
+                  {calculateAge(initialData.patient.iin)}
                 </div>
                 <div className="col-span-1">
                   <strong>Пол:</strong>{" "}
@@ -343,7 +334,7 @@ export const PatientDetailsClient = ({
                   ) : (
                     <span className="text-gray-500">Нет групп риска</span>
                   )}
-                  {isDoctor && (
+                  {isProvider && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -365,7 +356,7 @@ export const PatientDetailsClient = ({
                   ) : (
                     <span className="text-gray-500">Нет диагнозов</span>
                   )}
-                  {isDoctor && (
+                  {isProvider && (
                     <Button
                       variant="outline"
                       size="sm"

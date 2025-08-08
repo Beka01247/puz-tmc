@@ -4,6 +4,7 @@ import { db } from "@/db/drizzle";
 import { users, diagnoses, patientAlerts, measurements } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
+import { calculateAgeFromIIN } from "@/lib/utils/ageCalculator";
 
 // Helper function to translate measurement types to Russian
 function getMeasurementTypeInRussian(measurementType: string): string {
@@ -27,21 +28,8 @@ function getMeasurementTypeInRussian(measurementType: string): string {
   return translations[measurementType] || measurementType;
 }
 
-const calculateAge = (iin: string, currentDate: Date = new Date()): number => {
-  const year = parseInt(iin.slice(0, 2), 10);
-  const month = parseInt(iin.slice(2, 4), 10) - 1;
-  const day = parseInt(iin.slice(4, 6), 10);
-  const fullYear = year < 50 ? 2000 + year : 1900 + year;
-  const birthDate = new Date(fullYear, month, day);
-  let age = currentDate.getFullYear() - birthDate.getFullYear();
-  const monthDiff = currentDate.getMonth() - birthDate.getMonth();
-  if (
-    monthDiff < 0 ||
-    (monthDiff === 0 && currentDate.getDate() < birthDate.getDate())
-  ) {
-    age--;
-  }
-  return age;
+const calculateAge = (iin: string): number => {
+  return calculateAgeFromIIN(iin);
 };
 
 export interface DashboardPatient {
