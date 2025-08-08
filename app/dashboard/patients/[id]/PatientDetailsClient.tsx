@@ -9,6 +9,7 @@ import { ScreeningCard } from "./ScreeningCard";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { isDoctorRole, isMedicalProvider } from "@/lib/utils/auth";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConsultationsTab } from "./ConsultationsTab";
 import { TreatmentsTab } from "./TreatmentsTab";
@@ -249,11 +250,8 @@ export const PatientDetailsClient = ({
   };
 
   const isFemale = initialData.patient.gender === "ЖЕНСКИЙ";
-  const isDoctor =
-    userType === UserType.DISTRICT_DOCTOR ||
-    userType === UserType.SPECIALIST_DOCTOR ||
-    userType === "DOCTOR";
-  const isProvider = isDoctor || userType === "NURSE";
+  const isDoctor = isDoctorRole(userType.toString());
+  const isProvider = isMedicalProvider(userType.toString());
 
   return (
     <DashboardLayout

@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 const consultationSchema = z.object({
   consultationDate: z.string().refine((date) => !isNaN(Date.parse(date)), {
@@ -74,7 +75,7 @@ export const POST = async (
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
 
-  if (!["DOCTOR", "NURSE"].includes(session.user.userType)) {
+  if (!isMedicalProvider(session.user.userType)) {
     return NextResponse.json(
       { error: "Доступ запрещен: требуется роль врача или медсестры" },
       { status: 403 }

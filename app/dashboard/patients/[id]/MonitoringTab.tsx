@@ -69,7 +69,11 @@ export const MonitoringTab = ({
     fetchAlerts();
   }, [patientId]);
 
-  const canSetCriticalValues = userType === "DOCTOR" || userType === "NURSE";
+  const canSetCriticalValues =
+    userType === "DOCTOR" ||
+    userType === "DISTRICT_DOCTOR" ||
+    userType === "SPECIALIST_DOCTOR" ||
+    userType === "NURSE";
 
   const getActiveAlert = (itemId: string) => {
     return alerts.find(

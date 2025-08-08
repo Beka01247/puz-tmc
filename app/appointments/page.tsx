@@ -34,7 +34,11 @@ const AppointmentsPage = async () => {
   // Only fetch appointments for doctors
   let doctorAppointments: Reception[] = [];
 
-  if (userType === UserType.DOCTOR) {
+  if (
+    userType === UserType.DOCTOR ||
+    userType === UserType.DISTRICT_DOCTOR ||
+    userType === UserType.SPECIALIST_DOCTOR
+  ) {
     try {
       // Get all receptions for this doctor with patient information
       const data = await db

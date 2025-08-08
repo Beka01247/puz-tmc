@@ -84,7 +84,11 @@ const DashboardLayout = ({
       ? getPatientNavItems(session?.id || "")
       : userType === UserType.NURSE
         ? nurseNavItems
-        : doctorNavItems;
+        : userType === UserType.DISTRICT_DOCTOR ||
+            userType === UserType.SPECIALIST_DOCTOR ||
+            userType === "DOCTOR"
+          ? doctorNavItems
+          : doctorNavItems; // fallback to doctor nav items
 
   // Extract user name and avatar from session prop
   const userName = session?.fullName || "User";

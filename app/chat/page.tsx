@@ -54,10 +54,24 @@ const ChatPageContent = async ({ searchParams }: ChatPageProps) => {
     session.user.userType === "PATIENT" ? session.user.id : patientId;
 
   // Transform session user data into the format expected by the chat
+  const getUserRole = (userType: string): "DOCTOR" | "NURSE" | "PATIENT" => {
+    if (
+      userType === "DISTRICT_DOCTOR" ||
+      userType === "SPECIALIST_DOCTOR" ||
+      userType === "DOCTOR"
+    ) {
+      return "DOCTOR";
+    }
+    if (userType === "NURSE") {
+      return "NURSE";
+    }
+    return "PATIENT";
+  };
+
   const currentUser = {
     id: session.user.id,
     name: session.user.fullName,
-    role: session.user.userType.toUpperCase() as "DOCTOR" | "NURSE" | "PATIENT",
+    role: getUserRole(session.user.userType),
   };
 
   return (

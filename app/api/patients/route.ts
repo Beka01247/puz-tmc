@@ -5,6 +5,7 @@ import { eq, and, ilike } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 const querySchema = z.object({
   riskGroup: z
@@ -59,10 +60,7 @@ function calculateAge(
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    if (
-      !session?.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
-    ) {
+    if (!session?.user?.id || !isMedicalProvider(session.user.userType)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

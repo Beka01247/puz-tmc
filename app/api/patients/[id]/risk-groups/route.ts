@@ -4,6 +4,7 @@ import { riskGroups, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 const riskGroupSchema = z.object({
   name: z.string().min(1, "Название группы обязательно").max(255),
@@ -23,7 +24,7 @@ export async function POST(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
@@ -81,7 +82,7 @@ export async function PUT(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
@@ -148,7 +149,7 @@ export async function PATCH(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
@@ -215,7 +216,7 @@ export async function DELETE(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },

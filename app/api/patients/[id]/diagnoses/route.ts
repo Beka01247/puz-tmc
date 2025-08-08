@@ -4,6 +4,7 @@ import { diagnoses, users } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { isDoctorRole } from "@/lib/utils/auth";
 
 const diagnosisSchema = z.object({
   description: z.string().min(1, "Описание диагноза обязательно").max(255),
@@ -20,7 +21,7 @@ export async function POST(
   try {
     const resolvedParams = await params;
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (!session || !session.user?.id || !isDoctorRole(session.user.userType)) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
@@ -74,7 +75,7 @@ export async function PUT(
   try {
     const resolvedParams = await params;
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (!session || !session.user?.id || !isDoctorRole(session.user.userType)) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
@@ -137,7 +138,7 @@ export async function PATCH(
   try {
     const resolvedParams = await params;
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (!session || !session.user?.id || !isDoctorRole(session.user.userType)) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
@@ -198,7 +199,7 @@ export async function DELETE(
   try {
     const resolvedParams = await params;
     const session = await auth();
-    if (!session || !session.user?.id || session.user.userType !== "DOCTOR") {
+    if (!session || !session.user?.id || !isDoctorRole(session.user.userType)) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }

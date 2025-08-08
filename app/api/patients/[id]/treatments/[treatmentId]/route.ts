@@ -3,6 +3,7 @@ import { treatments, users, treatmentTimes, treatmentLogs } from "@/db/schema";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 export const DELETE = async (
   _: Request,
@@ -14,7 +15,7 @@ export const DELETE = async (
     return NextResponse.json({ error: "Неавторизован" }, { status: 401 });
   }
 
-  if (!["DOCTOR", "NURSE"].includes(session.user.userType)) {
+  if (!isMedicalProvider(session.user.userType)) {
     return NextResponse.json(
       { error: "Доступ запрещен: требуется роль врача или медсестры" },
       { status: 403 }

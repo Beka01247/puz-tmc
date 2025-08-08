@@ -9,6 +9,7 @@ import {
 import { eq, and, ilike } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 const postSchema = z.object({
   patientId: z.string().uuid(),
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "NURSE"].includes(session.user.userType)
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
