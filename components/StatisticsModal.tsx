@@ -74,13 +74,18 @@ const StatisticsModal = ({
     labels: sortedMeasurements.map((m) => formatDate(m.createdAt)),
     datasets: [
       {
-        label: item.inputType === "double" ? "Значение 1" : "Значение",
+        label:
+          item.id === "blood-pressure"
+            ? "Систолическое давление"
+            : item.inputType === "double"
+              ? "Значение 1"
+              : "Значение",
         data: sortedMeasurements.map((m) => parseFloat(m.value1) || 0),
         borderColor: "rgb(75, 192, 192)",
         backgroundColor: "rgba(75, 192, 192, 0.2)",
         tension: 0.1,
       },
-      ...(item.inputType === "double"
+      ...(item.inputType === "double" && item.id !== "blood-pressure"
         ? [
             {
               label: "Значение 2",
@@ -109,6 +114,19 @@ const StatisticsModal = ({
         display: true,
         text: `График изменений: ${item.title}`,
         color: "#000000",
+      },
+      tooltip: {
+        callbacks: {
+          ...(item.id === "blood-pressure" && {
+            afterLabel: function (context: { dataIndex: number }) {
+              const measurement = sortedMeasurements[context.dataIndex];
+              if (measurement && measurement.value2) {
+                return `Диастолическое давление: ${measurement.value2}`;
+              }
+              return "";
+            },
+          }),
+        },
       },
     },
     scales: {
@@ -150,17 +168,21 @@ const StatisticsModal = ({
               {measurements.length === 0 ? (
                 <p className="text-gray-400">Нет данных</p>
               ) : (
-                <ul className="space-y-2">
-                  {sortedMeasurements.map((m) => (
-                    <li key={m.id} className="text-sm">
-                      {formatDate(m.createdAt)}: {m.value1}
-                      {item.inputType === "double" &&
-                        m.value2 &&
-                        `/${m.value2}`}{" "}
-                      {item.unit}
-                    </li>
-                  ))}
-                </ul>
+                <div className="max-h-40 overflow-y-auto">
+                  <ul className="space-y-2">
+                    {sortedMeasurements.map((m) => (
+                      <li key={m.id} className="text-sm">
+                        {formatDate(m.createdAt)}:{" "}
+                        {item.id === "blood-pressure" && m.value2
+                          ? `${m.value1}/${m.value2}`
+                          : item.inputType === "double" && m.value2
+                            ? `${m.value1}/${m.value2}`
+                            : m.value1}{" "}
+                        {item.unit}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </CardContent>
           </Card>
