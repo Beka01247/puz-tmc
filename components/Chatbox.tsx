@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from "react";
 import type { FC } from "react";
 import { useChannel } from "ably/react";
 import type * as Ably from "ably";
+import VideoCallModal from "./VideoCallModal";
+import IncomingCallModal from "./IncomingCallModal";
 
 type Message = {
   id: string;
@@ -28,6 +30,22 @@ interface ChatBoxProps {
 const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
   const [messageText, setMessageText] = useState<string>("");
   const [receivedMessages, setMessages] = useState<Message[]>([]);
+  const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
+  const [isAudioCall, setIsAudioCall] = useState(false);
+  const [currentChannelName, setCurrentChannelName] = useState<string>("");
+  const [incomingCall, setIncomingCall] = useState<{
+    isOpen: boolean;
+    callerName: string;
+    callerRole: string;
+    isVideoCall: boolean;
+    channelName: string;
+  }>({
+    isOpen: false,
+    callerName: "",
+    callerRole: "",
+    isVideoCall: false,
+    channelName: "",
+  });
   const messageTextIsEmpty = messageText.trim().length === 0;
   const inputBox = useRef<HTMLTextAreaElement | null>(null);
   const messageEnd = useRef<HTMLDivElement | null>(null);
@@ -35,28 +53,49 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
   const { channel } = useChannel(
     `patient-${patientId}`,
     (message: Ably.Message) => {
-      const messageData = message.data as {
-        text: string;
-        sender: {
-          id: string;
-          name: string;
-          role: "DOCTOR" | "NURSE" | "PATIENT";
+      if (message.name === "chat-message") {
+        const messageData = message.data as {
+          text: string;
+          sender: {
+            id: string;
+            name: string;
+            role: "DOCTOR" | "NURSE" | "PATIENT";
+          };
+          timestamp: number;
         };
-        timestamp: number;
-      };
 
-      // Add message to local state for real-time display
-      const newMessage: Message = {
-        id: Date.now().toString(), // Temporary ID for real-time messages
-        message: messageData.text,
-        sender: messageData.sender,
-        createdAt: new Date().toISOString(),
-      };
+        // Add message to local state for real-time display
+        const newMessage: Message = {
+          id: Date.now().toString(), // Temporary ID for real-time messages
+          message: messageData.text,
+          sender: messageData.sender,
+          createdAt: new Date().toISOString(),
+        };
 
-      setMessages((prevMessages) => {
-        const history = prevMessages.slice(-199);
-        return [...history, newMessage];
-      });
+        setMessages((prevMessages) => {
+          const history = prevMessages.slice(-199);
+          return [...history, newMessage];
+        });
+      } else if (message.name === "call-invitation") {
+        const callData = message.data as {
+          channelName: string;
+          isVideoCall: boolean;
+          callerName: string;
+          callerRole: string;
+          callerId: string;
+        };
+
+        // Only show invitation if it's not from the current user
+        if (callData.callerId !== currentUser.id) {
+          setIncomingCall({
+            isOpen: true,
+            callerName: callData.callerName,
+            callerRole: callData.callerRole,
+            isVideoCall: callData.isVideoCall,
+            channelName: callData.channelName,
+          });
+        }
+      }
     }
   );
 
@@ -121,6 +160,86 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
     }
     sendChatMessage(messageText);
     event.preventDefault();
+  };
+
+  const handleAudioCall = async () => {
+    const channelName = generateChannelName();
+    setCurrentChannelName(channelName);
+
+    // Send call invitation via Ably
+    await channel.publish({
+      name: "call-invitation",
+      data: {
+        channelName,
+        isVideoCall: false,
+        callerName: currentUser.name,
+        callerRole: currentUser.role,
+        callerId: currentUser.id,
+      },
+    });
+
+    setIsAudioCall(true);
+    setIsVideoCallOpen(true);
+  };
+
+  const handleVideoCall = async () => {
+    const channelName = generateChannelName();
+    setCurrentChannelName(channelName);
+
+    // Send call invitation via Ably
+    await channel.publish({
+      name: "call-invitation",
+      data: {
+        channelName,
+        isVideoCall: true,
+        callerName: currentUser.name,
+        callerRole: currentUser.role,
+        callerId: currentUser.id,
+      },
+    });
+
+    setIsAudioCall(false);
+    setIsVideoCallOpen(true);
+  };
+
+  const handleCloseCall = () => {
+    setIsVideoCallOpen(false);
+    setCurrentChannelName("");
+  };
+
+  const handleAcceptCall = () => {
+    setCurrentChannelName(incomingCall.channelName);
+    setIsAudioCall(!incomingCall.isVideoCall);
+    setIsVideoCallOpen(true);
+    setIncomingCall((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleDeclineCall = () => {
+    setIncomingCall((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const getPatientName = () => {
+    // If current user is patient, we're calling the doctor
+    // If current user is doctor/nurse, we're calling the patient
+    if (currentUser.role === "PATIENT") {
+      return "Доктор";
+    }
+    return "Пациент";
+  };
+
+  const generateChannelName = () => {
+    // Create a consistent channel name for the chat participants
+    // Remove hyphens and limit length to stay within 64 bytes
+    const cleanPatientId = patientId
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .substring(0, 20);
+    const cleanUserId = currentUser.id
+      .replace(/[^a-zA-Z0-9]/g, "")
+      .substring(0, 20);
+
+    // Sort IDs to ensure same channel name regardless of who initiates
+    const ids = [cleanPatientId, cleanUserId].sort();
+    return `call_${ids[0]}_${ids[1]}`.substring(0, 60);
   };
 
   const formatTime = (dateString: string) => {
@@ -192,50 +311,58 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
             </h3>
           </div>
           <div className="flex gap-3">
-            {/* Phone Icon */}
-            <button
-              type="button"
-              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-              title="Голосовой звонок"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-gray-600"
-              >
-                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
-              </svg>
-            </button>
-            
-            {/* Video Icon */}
-            <button
-              type="button"
-              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-              title="Видео звонок"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-gray-600"
-              >
-                <polygon points="23 7 16 12 23 17 23 7"/>
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-              </svg>
-            </button>
+            {/* Only show call buttons for doctors and nurses, not patients */}
+            {(currentUser.role === "DOCTOR" ||
+              currentUser.role === "NURSE") && (
+              <>
+                {/* Phone Icon */}
+                <button
+                  type="button"
+                  onClick={handleAudioCall}
+                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                  title="Голосовой звонок"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-gray-600"
+                  >
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                </button>
+
+                {/* Video Icon */}
+                <button
+                  type="button"
+                  onClick={handleVideoCall}
+                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                  title="Видео звонок"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-gray-600"
+                  >
+                    <polygon points="23 7 16 12 23 17 23 7" />
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                  </svg>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -274,6 +401,26 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
           </button>
         </div>
       </form>
+
+      {/* Video Call Modal */}
+      <VideoCallModal
+        isOpen={isVideoCallOpen}
+        onClose={handleCloseCall}
+        channelName={currentChannelName || generateChannelName()}
+        currentUserId={currentUser.id}
+        isVideoCall={!isAudioCall}
+        recipientName={getPatientName()}
+      />
+
+      {/* Incoming Call Modal */}
+      <IncomingCallModal
+        isOpen={incomingCall.isOpen}
+        callerName={incomingCall.callerName}
+        callerRole={incomingCall.callerRole}
+        isVideoCall={incomingCall.isVideoCall}
+        onAccept={handleAcceptCall}
+        onDecline={handleDeclineCall}
+      />
     </div>
   );
 };
