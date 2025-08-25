@@ -1,17 +1,37 @@
 import { useState, useRef, useEffect } from "react";
-import AgoraRTC, {
+import type {
   IAgoraRTCClient,
   ICameraVideoTrack,
   IMicrophoneAudioTrack,
   IRemoteVideoTrack,
   IRemoteAudioTrack,
+  IAgoraRTCRemoteUser,
 } from "agora-rtc-sdk-ng";
+import {
+  convertWebMToMP4,
+  downloadBlob,
+  createOptimizedRecorder,
+} from "@/lib/utils/recording";
+
+// Client-side only AgoraRTC initialization
+let AgoraRTC: typeof import("agora-rtc-sdk-ng").default | null = null;
+
+const initAgoraRTC = async () => {
+  if (typeof window !== "undefined" && !AgoraRTC) {
+    const { default: agora } = await import("agora-rtc-sdk-ng");
+    AgoraRTC = agora;
+  }
+  return AgoraRTC;
+};
 
 export interface CallState {
   isConnected: boolean;
   isAudioEnabled: boolean;
   isVideoEnabled: boolean;
   remoteUsers: string[];
+  isRecording: boolean;
+  conversionProgress: number;
+  isConverting: boolean;
 }
 
 export const useAgoraCall = () => {
@@ -25,7 +45,15 @@ export const useAgoraCall = () => {
     isAudioEnabled: false,
     isVideoEnabled: false,
     remoteUsers: [],
+    isRecording: false,
+    conversionProgress: 0,
+    isConverting: false,
   });
+
+  // Recording state
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingStartTimeRef = useRef<Date | null>(null);
 
   const remoteVideoTracksRef = useRef<Map<string, IRemoteVideoTrack>>(
     new Map()
@@ -35,61 +63,81 @@ export const useAgoraCall = () => {
   );
 
   useEffect(() => {
-    const agoraClient = AgoraRTC.createClient({
-      mode: "rtc",
-      codec: "vp8",
-    });
-
-    setClient(agoraClient);
-
-    // Set up event listeners
-    agoraClient.on("user-published", async (user, mediaType) => {
-      console.log("User published:", user.uid, mediaType);
-      await agoraClient.subscribe(user, mediaType);
-
-      if (mediaType === "video") {
-        console.log("Setting remote video track for user:", user.uid);
-        remoteVideoTracksRef.current.set(user.uid.toString(), user.videoTrack!);
-      } else if (mediaType === "audio") {
-        console.log("Setting remote audio track for user:", user.uid);
-        remoteAudioTracksRef.current.set(user.uid.toString(), user.audioTrack!);
-        user.audioTrack!.play();
+    const initializeAgora = async () => {
+      // Only initialize on client side
+      const agora = await initAgoraRTC();
+      if (!agora) {
+        console.error("Failed to load AgoraRTC");
+        return;
       }
 
-      setCallState((prev) => ({
-        ...prev,
-        remoteUsers: Array.from(
-          new Set([...prev.remoteUsers, user.uid.toString()])
-        ),
-      }));
-    });
+      const agoraClient = agora.createClient({
+        mode: "rtc",
+        codec: "vp8",
+      });
 
-    agoraClient.on("user-unpublished", (user) => {
-      remoteVideoTracksRef.current.delete(user.uid.toString());
-      remoteAudioTracksRef.current.delete(user.uid.toString());
+      setClient(agoraClient);
 
-      setCallState((prev) => ({
-        ...prev,
-        remoteUsers: prev.remoteUsers.filter(
-          (uid) => uid !== user.uid.toString()
-        ),
-      }));
-    });
+      // Set up event listeners
+      agoraClient.on(
+        "user-published",
+        async (user: IAgoraRTCRemoteUser, mediaType: "video" | "audio") => {
+          console.log("User published:", user.uid, mediaType);
+          await agoraClient.subscribe(user, mediaType);
 
-    agoraClient.on("user-left", (user) => {
-      remoteVideoTracksRef.current.delete(user.uid.toString());
-      remoteAudioTracksRef.current.delete(user.uid.toString());
+          if (mediaType === "video") {
+            console.log("Setting remote video track for user:", user.uid);
+            remoteVideoTracksRef.current.set(
+              user.uid.toString(),
+              user.videoTrack!
+            );
+          } else if (mediaType === "audio") {
+            console.log("Setting remote audio track for user:", user.uid);
+            remoteAudioTracksRef.current.set(
+              user.uid.toString(),
+              user.audioTrack!
+            );
+            user.audioTrack!.play();
+          }
 
-      setCallState((prev) => ({
-        ...prev,
-        remoteUsers: prev.remoteUsers.filter(
-          (uid) => uid !== user.uid.toString()
-        ),
-      }));
-    });
+          setCallState((prev) => ({
+            ...prev,
+            remoteUsers: Array.from(
+              new Set([...prev.remoteUsers, user.uid.toString()])
+            ),
+          }));
+        }
+      );
+
+      agoraClient.on("user-unpublished", (user: IAgoraRTCRemoteUser) => {
+        remoteVideoTracksRef.current.delete(user.uid.toString());
+        remoteAudioTracksRef.current.delete(user.uid.toString());
+
+        setCallState((prev) => ({
+          ...prev,
+          remoteUsers: prev.remoteUsers.filter(
+            (uid) => uid !== user.uid.toString()
+          ),
+        }));
+      });
+
+      agoraClient.on("user-left", (user: IAgoraRTCRemoteUser) => {
+        remoteVideoTracksRef.current.delete(user.uid.toString());
+        remoteAudioTracksRef.current.delete(user.uid.toString());
+
+        setCallState((prev) => ({
+          ...prev,
+          remoteUsers: prev.remoteUsers.filter(
+            (uid) => uid !== user.uid.toString()
+          ),
+        }));
+      });
+    };
+
+    initializeAgora();
 
     return () => {
-      agoraClient.removeAllListeners();
+      // Cleanup will be handled by the client state change
     };
   }, []);
 
@@ -141,7 +189,12 @@ export const useAgoraCall = () => {
       console.log("Joined channel successfully");
 
       // Create and publish audio track
-      const audioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+      const agora = await initAgoraRTC();
+      if (!agora) {
+        throw new Error("AgoraRTC not loaded");
+      }
+
+      const audioTrack = await agora.createMicrophoneAudioTrack();
       setLocalAudioTrack(audioTrack);
       await client.publish(audioTrack);
       console.log("Published audio track");
@@ -149,7 +202,7 @@ export const useAgoraCall = () => {
       // Create and publish video track if it's a video call
       if (isVideoCall) {
         console.log("Creating video track...");
-        const videoTrack = await AgoraRTC.createCameraVideoTrack();
+        const videoTrack = await agora.createCameraVideoTrack();
         console.log("Video track created:", videoTrack);
         setLocalVideoTrack(videoTrack);
         await client.publish(videoTrack);
@@ -195,6 +248,9 @@ export const useAgoraCall = () => {
         isAudioEnabled: false,
         isVideoEnabled: false,
         remoteUsers: [],
+        isRecording: false,
+        conversionProgress: 0,
+        isConverting: false,
       });
 
       // Clear remote tracks
@@ -224,7 +280,10 @@ export const useAgoraCall = () => {
       }));
     } else if (callState.isConnected && client) {
       // Start video if not already started
-      const videoTrack = await AgoraRTC.createCameraVideoTrack();
+      const agora = await initAgoraRTC();
+      if (!agora) return;
+
+      const videoTrack = await agora.createCameraVideoTrack();
       setLocalVideoTrack(videoTrack);
       await client.publish(videoTrack);
       setCallState((prev) => ({ ...prev, isVideoEnabled: true }));
@@ -235,6 +294,154 @@ export const useAgoraCall = () => {
     return remoteVideoTracksRef.current.get(uid);
   };
 
+  const startRecording = async () => {
+    try {
+      if (!callState.isConnected) {
+        throw new Error("No active call to record");
+      }
+
+      console.log("Starting recording...");
+
+      // Create a new MediaStream to combine all tracks
+      const combinedStream = new MediaStream();
+
+      // Add local audio track
+      if (localAudioTrack) {
+        const localAudioMediaTrack = localAudioTrack.getMediaStreamTrack();
+        combinedStream.addTrack(localAudioMediaTrack);
+        console.log("Added local audio track");
+      }
+
+      // Add local video track
+      if (localVideoTrack && callState.isVideoEnabled) {
+        const localVideoMediaTrack = localVideoTrack.getMediaStreamTrack();
+        combinedStream.addTrack(localVideoMediaTrack);
+        console.log("Added local video track");
+      }
+
+      // Add remote audio tracks
+      remoteAudioTracksRef.current.forEach((remoteAudioTrack, uid) => {
+        const remoteAudioMediaTrack = remoteAudioTrack.getMediaStreamTrack();
+        combinedStream.addTrack(remoteAudioMediaTrack);
+        console.log("Added remote audio track for user:", uid);
+      });
+
+      // Add remote video tracks
+      remoteVideoTracksRef.current.forEach((remoteVideoTrack, uid) => {
+        const remoteVideoMediaTrack = remoteVideoTrack.getMediaStreamTrack();
+        combinedStream.addTrack(remoteVideoMediaTrack);
+        console.log("Added remote video track for user:", uid);
+      });
+
+      // Check if we have any tracks
+      if (combinedStream.getTracks().length === 0) {
+        throw new Error("No media tracks available for recording");
+      }
+
+      console.log(
+        "Total tracks in combined stream:",
+        combinedStream.getTracks().length
+      );
+
+      // Create optimized MediaRecorder
+      const mediaRecorder = createOptimizedRecorder(combinedStream);
+      if (!mediaRecorder) {
+        throw new Error("Failed to create MediaRecorder");
+      }
+
+      console.log(
+        "Using MediaRecorder with MIME type:",
+        mediaRecorder.mimeType
+      );
+
+      mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+          console.log("Data chunk received:", event.data.size, "bytes");
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        console.log("Recording stopped, processing...");
+        const recordedBlob = new Blob(recordedChunksRef.current, {
+          type: mediaRecorder.mimeType || "video/webm",
+        });
+
+        await processRecording(recordedBlob);
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event);
+      };
+
+      // Start recording
+      mediaRecorder.start(1000); // Collect data every second
+      recordingStartTimeRef.current = new Date();
+
+      setCallState((prev) => ({ ...prev, isRecording: true }));
+      console.log("Recording started successfully");
+    } catch (error) {
+      console.error("Error starting recording:", error);
+      throw error;
+    }
+  };
+
+  const stopRecording = () => {
+    if (
+      mediaRecorderRef.current &&
+      mediaRecorderRef.current.state === "recording"
+    ) {
+      mediaRecorderRef.current.stop();
+      setCallState((prev) => ({ ...prev, isRecording: false }));
+      recordingStartTimeRef.current = null;
+    }
+  };
+
+  const processRecording = async (recordedBlob: Blob) => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+    try {
+      setCallState((prev) => ({
+        ...prev,
+        isConverting: true,
+        conversionProgress: 0,
+      }));
+
+      console.log("Processing recording...");
+
+      // Process the recording and get the format
+      const result = await convertWebMToMP4(recordedBlob, (progress) => {
+        setCallState((prev) => ({
+          ...prev,
+          conversionProgress: progress,
+        }));
+      });
+
+      console.log(`Downloading recording as ${result.format.toUpperCase()}...`);
+      downloadBlob(result.blob, `call-recording-${timestamp}.${result.format}`);
+    } catch (error) {
+      console.error("Error processing recording:", error);
+      // Fallback to original blob
+      console.log("Falling back to original format...");
+      const fallbackExtension = recordedBlob.type.includes("mp4")
+        ? "mp4"
+        : "webm";
+      downloadBlob(
+        recordedBlob,
+        `call-recording-${timestamp}.${fallbackExtension}`
+      );
+    } finally {
+      setCallState((prev) => ({
+        ...prev,
+        isConverting: false,
+        conversionProgress: 0,
+      }));
+    }
+  };
+
   return {
     callState,
     localVideoTrack,
@@ -243,5 +450,7 @@ export const useAgoraCall = () => {
     toggleAudio,
     toggleVideo,
     getRemoteVideoTrack,
+    startRecording,
+    stopRecording,
   };
 };

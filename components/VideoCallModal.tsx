@@ -28,6 +28,8 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     toggleAudio,
     toggleVideo,
     getRemoteVideoTrack,
+    startRecording,
+    stopRecording,
   } = useAgoraCall();
 
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -85,10 +87,27 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
   };
 
   const handleEndCall = async () => {
+    // Stop recording if active
+    if (callState.isRecording) {
+      stopRecording();
+    }
     await endCall();
     setIsCallStarted(false);
     setCallDuration(0);
     onClose();
+  };
+
+  const handleStartRecording = async () => {
+    try {
+      await startRecording();
+    } catch (error) {
+      console.error("Failed to start recording:", error);
+      alert("Не удалось начать запись. Проверьте разрешения браузера.");
+    }
+  };
+
+  const handleStopRecording = () => {
+    stopRecording();
   };
 
   const formatDuration = (seconds: number) => {
@@ -343,6 +362,72 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                   )}
                 </svg>
               </button>
+            )}
+
+            {/* Recording Button */}
+            <button
+              onClick={
+                callState.isRecording
+                  ? handleStopRecording
+                  : handleStartRecording
+              }
+              className={`p-3 rounded-full ${
+                callState.isRecording
+                  ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
+              }`}
+              title={
+                callState.isRecording ? "Остановить запись" : "Начать запись"
+              }
+              disabled={callState.isConverting}
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {callState.isRecording ? (
+                  /* Stop Recording - Stop Square */
+                  <rect
+                    x="6"
+                    y="6"
+                    width="12"
+                    height="12"
+                    rx="2"
+                    ry="2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                ) : (
+                  /* Start Recording - Simple Record Dot */
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="4"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                )}
+              </svg>
+            </button>
+
+            {/* Processing Progress Indicator */}
+            {callState.isConverting && (
+              <div className="flex items-center space-x-2 bg-blue-100 px-3 py-2 rounded-lg">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-blue-700">
+                  Обработка записи: {callState.conversionProgress}%
+                </span>
+              </div>
+            )}
+
+            {/* Recording Status */}
+            {callState.isRecording && (
+              <div className="flex items-center space-x-2 bg-red-100 px-3 py-2 rounded-lg">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-red-700">Идет запись...</span>
+              </div>
             )}
 
             {/* End Call */}

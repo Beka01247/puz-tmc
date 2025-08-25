@@ -82,13 +82,6 @@ export const MonitoringTab = ({
     );
   };
 
-  const getActiveAlertsCount = (itemId: string) => {
-    return alerts.filter(
-      (alert) =>
-        alert.measurementType === itemId && alert.alertStatus === "CRITICAL"
-    ).length;
-  };
-
   return (
     <>
       <Card>
@@ -107,7 +100,6 @@ export const MonitoringTab = ({
                     new Date(a.createdAt).getTime()
                 )[0];
               const activeAlert = getActiveAlert(item.id);
-              const alertsCount = getActiveAlertsCount(item.id);
               const isAlert = !!activeAlert;
               const hasBluetoothSupport =
                 item.id === "blood-pressure" || item.id === "pulse";
@@ -129,16 +121,8 @@ export const MonitoringTab = ({
                   <CardContent>
                     {isAlert && (
                       <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-md">
-                        <p className="text-sm text-red-800 font-medium">
-                          ⚠️ Предел!
-                          {alertsCount > 1 && (
-                            <span className="ml-1 text-xs">
-                              ({alertsCount} предупреждений)
-                            </span>
-                          )}
-                        </p>
                         <p className="text-xs text-red-600">
-                          {activeAlert?.message}
+                          ⚠️ {activeAlert?.message}
                         </p>
                       </div>
                     )}

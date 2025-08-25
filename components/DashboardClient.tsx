@@ -81,7 +81,7 @@ const DashboardClient = () => {
   return (
     <DashboardLayout userType={userType} session={session}>
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Мой профиль</h2>
+        <h2 className="text-2xl font-bold">Личный кабинет</h2>
 
         <Card className="bg-white text-black border-gray-600">
           <CardHeader>

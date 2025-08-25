@@ -112,12 +112,6 @@ export async function GET(
         )
       );
 
-    console.log("Pregnancy query result:", {
-      patientId: resolvedParams.id,
-      pregnancyFound: !!pregnancy,
-      pregnancy: pregnancy || null,
-    });
-
     return NextResponse.json(pregnancy || null);
   } catch (error) {
     console.error("Ошибка при получении информации о беременности:", error);

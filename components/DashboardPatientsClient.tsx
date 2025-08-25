@@ -46,7 +46,6 @@ const DashboardPatientsClient = () => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Список пациентов</h2>
-          <Button>Добавить пациента</Button>
         </div>
         <div className="border rounded-lg p-8 text-center">Загрузка...</div>
       </div>
@@ -58,7 +57,6 @@ const DashboardPatientsClient = () => {
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Список пациентов</h2>
-          <Button>Добавить пациента</Button>
         </div>
         <div className="border rounded-lg p-8 text-center text-red-500">
           {error}
@@ -71,7 +69,6 @@ const DashboardPatientsClient = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Список пациентов</h2>
-        <Button>Добавить пациента</Button>
       </div>
 
       <div className="border rounded-lg">
