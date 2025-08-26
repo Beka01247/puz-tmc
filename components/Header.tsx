@@ -1,7 +1,14 @@
-import { auth } from "@/auth";
+import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { SignOutButton } from "./SignOutButton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 
 const Header = async () => {
   const session = await auth();
@@ -24,7 +31,51 @@ const Header = async () => {
           </li>
         ) : (
           <li>
-            <SignOutButton />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <div
+                  className={cn(
+                    "flex items-center space-x-3 cursor-pointer",
+                    "px-3 py-1.5 rounded-md bg-muted/50 hover:bg-muted transition-colors border border-border"
+                  )}
+                >
+                  <Avatar>
+                    <AvatarImage alt={session?.user?.fullName || "User"} />
+                    <AvatarFallback>
+                      {session?.user?.fullName
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()
+                        .slice(0, 2) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium hidden sm:inline">
+                    {session?.user?.fullName || "User"}
+                  </span>
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard">
+                    Личный кабинет
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <form 
+                    action={async () => {
+                      "use server";
+                      await signOut({ redirectTo: "/sign-in" });
+                    }} 
+                    className="w-full"
+                  >
+                    <button type="submit" className="w-full text-left">
+                      Выйти
+                    </button>
+                  </form>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </li>
         )}
       </ul>
