@@ -194,21 +194,45 @@ export const useAgoraCall = () => {
         throw new Error("AgoraRTC not loaded");
       }
 
-      const audioTrack = await agora.createMicrophoneAudioTrack();
-      setLocalAudioTrack(audioTrack);
-      await client.publish(audioTrack);
-      console.log("Published audio track");
+      try {
+        const audioTrack = await agora.createMicrophoneAudioTrack();
+        setLocalAudioTrack(audioTrack);
+        await client.publish(audioTrack);
+        console.log("Published audio track");
+      } catch (audioError) {
+        console.error("Failed to create audio track:", audioError);
+        throw new Error(
+          "Audio device not available. Please check your microphone permissions."
+        );
+      }
 
       // Create and publish video track if it's a video call
       if (isVideoCall) {
-        console.log("Creating video track...");
-        const videoTrack = await agora.createCameraVideoTrack();
-        console.log("Video track created:", videoTrack);
-        setLocalVideoTrack(videoTrack);
-        await client.publish(videoTrack);
-        console.log("Published video track");
+        try {
+          console.log("Creating video track...");
+          const videoTrack = await agora.createCameraVideoTrack();
+          console.log("Video track created:", videoTrack);
+          setLocalVideoTrack(videoTrack);
+          await client.publish(videoTrack);
+          console.log("Published video track");
+        } catch (videoError) {
+          console.warn("Failed to create video track:", videoError);
+          console.log("Continuing with audio-only call");
+          // Continue with audio-only even if video fails
+          setCallState((prev) => ({
+            ...prev,
+            isConnected: true,
+            isAudioEnabled: true,
+            isVideoEnabled: false, // Set to false since video failed
+          }));
+          console.log(
+            "Call started successfully (audio-only due to camera issue)"
+          );
+          return; // Exit early to avoid setting video enabled
+        }
       }
 
+      // Set call state for successful call (with or without video)
       setCallState((prev) => ({
         ...prev,
         isConnected: true,
@@ -280,13 +304,21 @@ export const useAgoraCall = () => {
       }));
     } else if (callState.isConnected && client) {
       // Start video if not already started
-      const agora = await initAgoraRTC();
-      if (!agora) return;
+      try {
+        const agora = await initAgoraRTC();
+        if (!agora) return;
 
-      const videoTrack = await agora.createCameraVideoTrack();
-      setLocalVideoTrack(videoTrack);
-      await client.publish(videoTrack);
-      setCallState((prev) => ({ ...prev, isVideoEnabled: true }));
+        const videoTrack = await agora.createCameraVideoTrack();
+        setLocalVideoTrack(videoTrack);
+        await client.publish(videoTrack);
+        setCallState((prev) => ({ ...prev, isVideoEnabled: true }));
+        console.log("Video enabled successfully");
+      } catch (error) {
+        console.warn("Failed to enable video:", error);
+        alert(
+          "Camera not available. Please check your camera permissions or ensure no other application is using the camera."
+        );
+      }
     }
   };
 

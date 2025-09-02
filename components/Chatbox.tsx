@@ -13,9 +13,15 @@ type Message = {
   sender: {
     id: string;
     name: string;
-    role: "DOCTOR" | "NURSE" | "PATIENT";
+    role: "DOCTOR" | "NURSE" | "PATIENT" | "SYSTEM";
   };
   createdAt: string;
+  callInvitation?: {
+    channelName: string;
+    isVideoCall: boolean;
+    callerName: string;
+    callerRole: string;
+  };
 };
 
 interface ChatBoxProps {
@@ -87,12 +93,27 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
 
         // Only show invitation if it's not from the current user
         if (callData.callerId !== currentUser.id) {
-          setIncomingCall({
-            isOpen: true,
-            callerName: callData.callerName,
-            callerRole: callData.callerRole,
-            isVideoCall: callData.isVideoCall,
-            channelName: callData.channelName,
+          // Create a special call invitation message
+          const callInvitationMessage: Message = {
+            id: `call-${Date.now()}`,
+            message: `${callData.callerName} is inviting you to a ${callData.isVideoCall ? "video" : "audio"} call`,
+            sender: {
+              id: "system",
+              name: "System",
+              role: "SYSTEM",
+            },
+            createdAt: new Date().toISOString(),
+            callInvitation: {
+              channelName: callData.channelName,
+              isVideoCall: callData.isVideoCall,
+              callerName: callData.callerName,
+              callerRole: callData.callerRole,
+            },
+          };
+
+          setMessages((prevMessages) => {
+            const history = prevMessages.slice(-199);
+            return [...history, callInvitationMessage];
           });
         }
       }
@@ -268,6 +289,7 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
       DOCTOR: "bg-blue-500",
       NURSE: "bg-green-500",
       PATIENT: "bg-gray-500",
+      SYSTEM: "bg-orange-500",
     };
 
     return (
@@ -291,6 +313,35 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
           }`}
         >
           {message.message}
+
+          {/* Call invitation buttons */}
+          {message.callInvitation && (
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => {
+                  setCurrentChannelName(message.callInvitation!.channelName);
+                  setIsAudioCall(!message.callInvitation!.isVideoCall);
+                  setIsVideoCallOpen(true);
+                }}
+                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium text-sm transition-colors"
+              >
+                {message.callInvitation.isVideoCall
+                  ? "Присоединиться к видео"
+                  : "Присоединиться к звонку"}
+              </button>
+              <button
+                onClick={() => {
+                  // Remove the call invitation message
+                  setMessages((prev) =>
+                    prev.filter((m) => m.id !== message.id)
+                  );
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm transition-colors"
+              >
+                Отклонить
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
