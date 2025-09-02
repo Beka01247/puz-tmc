@@ -28,8 +28,8 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     toggleAudio,
     toggleVideo,
     getRemoteVideoTrack,
-    startRecording,
     stopRecording,
+    startScreenRecording,
   } = useAgoraCall();
 
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -97,12 +97,12 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     onClose();
   };
 
-  const handleStartRecording = async () => {
+  const handleStartScreenRecording = async () => {
     try {
-      await startRecording();
+      await startScreenRecording();
     } catch (error) {
-      console.error("Failed to start recording:", error);
-      alert("Не удалось начать запись. Проверьте разрешения браузера.");
+      console.error("Failed to start screen recording:", error);
+      alert("Не удалось начать запись экрана. Проверьте разрешения браузера.");
     }
   };
 
@@ -364,53 +364,71 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
               </button>
             )}
 
-            {/* Recording Button */}
-            <button
-              onClick={
-                callState.isRecording
-                  ? handleStopRecording
-                  : handleStartRecording
-              }
-              className={`p-3 rounded-full ${
-                callState.isRecording
-                  ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
-                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
-              }`}
-              title={
-                callState.isRecording ? "Остановить запись" : "Начать запись"
-              }
-              disabled={callState.isConverting}
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {/* Recording Buttons */}
+            <div className="flex space-x-2">
+              {/* Composition Recording Button */}
+
+              {/* Screen Recording Button */}
+              <button
+                onClick={
+                  callState.isRecording
+                    ? handleStopRecording
+                    : handleStartScreenRecording
+                }
+                className={`p-3 rounded-full ${
+                  callState.isRecording
+                    ? "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                    : "bg-blue-200 hover:bg-blue-300 text-blue-700"
+                }`}
+                title={
+                  callState.isRecording
+                    ? "Остановить запись экрана"
+                    : "Записать экран"
+                }
+                disabled={callState.isConverting}
               >
-                {callState.isRecording ? (
-                  /* Stop Recording - Stop Square */
-                  <rect
-                    x="6"
-                    y="6"
-                    width="12"
-                    height="12"
-                    rx="2"
-                    ry="2"
-                    fill="currentColor"
-                    stroke="none"
-                  />
-                ) : (
-                  /* Start Recording - Simple Record Dot */
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="4"
-                    fill="currentColor"
-                    stroke="none"
-                  />
-                )}
-              </svg>
-            </button>
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  {callState.isRecording ? (
+                    /* Stop Recording - Stop Square */
+                    <rect
+                      x="6"
+                      y="6"
+                      width="12"
+                      height="12"
+                      rx="2"
+                      ry="2"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                  ) : (
+                    /* Screen Recording Icon */
+                    <>
+                      <rect
+                        x="2"
+                        y="3"
+                        width="20"
+                        height="14"
+                        rx="2"
+                        ry="2"
+                        strokeWidth={2}
+                      />
+                      <circle
+                        cx="12"
+                        cy="10"
+                        r="3"
+                        fill="currentColor"
+                        stroke="none"
+                      />
+                    </>
+                  )}
+                </svg>
+              </button>
+            </div>
 
             {/* Processing Progress Indicator */}
             {callState.isConverting && (

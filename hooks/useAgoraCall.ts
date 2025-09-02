@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type {
   IAgoraRTCClient,
   ICameraVideoTrack,
@@ -55,6 +55,87 @@ export const useAgoraCall = () => {
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingStartTimeRef = useRef<Date | null>(null);
 
+  // Composition recording state
+  const composeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const composeCtxRef = useRef<CanvasRenderingContext2D | null>(null);
+  const drawRAFRef = useRef<number | null>(null);
+  const videoElsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const audioDestRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const audioSourcesRef = useRef<Map<string, MediaStreamAudioSourceNode>>(
+    new Map()
+  );
+  const composedStreamRef = useRef<MediaStream | null>(null);
+  const isComposedRecordingRef = useRef<boolean>(false);
+
+  // Sync helper functions for composition recording
+  const syncVideoElements = useCallback(() => {
+    // Which video tracks do we currently want in the composition?
+    const wanted = new Map<string, MediaStreamTrack>();
+
+    if (localVideoTrack && callState.isVideoEnabled) {
+      wanted.set("local", localVideoTrack.getMediaStreamTrack());
+    }
+    remoteVideoTracksRef.current.forEach((trk, uid) => {
+      wanted.set(`remote:${uid}`, trk.getMediaStreamTrack());
+    });
+
+    // Remove stale videos
+    videoElsRef.current.forEach((el, key) => {
+      if (!wanted.has(key)) {
+        try {
+          el.pause();
+        } catch {}
+        el.srcObject = null;
+        videoElsRef.current.delete(key);
+      }
+    });
+
+    // Add new videos
+    wanted.forEach((track, key) => {
+      if (!videoElsRef.current.has(key)) {
+        const v = document.createElement("video");
+        v.playsInline = true;
+        v.muted = true; // don't echo to speakers; we only need frames
+        v.srcObject = new MediaStream([track]);
+        v.onloadedmetadata = () => v.play().catch(() => {});
+        videoElsRef.current.set(key, v);
+      }
+    });
+  }, [localVideoTrack, callState.isVideoEnabled]);
+
+  const syncAudioNodes = useCallback(() => {
+    if (!audioCtxRef.current || !audioDestRef.current) return;
+
+    const wanted = new Map<string, MediaStreamTrack>();
+    if (localAudioTrack)
+      wanted.set("local", localAudioTrack.getMediaStreamTrack());
+    remoteAudioTracksRef.current.forEach((trk, uid) => {
+      wanted.set(`remote:${uid}`, trk.getMediaStreamTrack());
+    });
+
+    // Remove stale nodes
+    audioSourcesRef.current.forEach((node, key) => {
+      if (!wanted.has(key)) {
+        try {
+          node.disconnect();
+        } catch {}
+        audioSourcesRef.current.delete(key);
+      }
+    });
+
+    // Add new nodes
+    wanted.forEach((track, key) => {
+      if (!audioSourcesRef.current.has(key)) {
+        const src = audioCtxRef.current!.createMediaStreamSource(
+          new MediaStream([track])
+        );
+        src.connect(audioDestRef.current!);
+        audioSourcesRef.current.set(key, src);
+      }
+    });
+  }, [localAudioTrack]);
+
   const remoteVideoTracksRef = useRef<Map<string, IRemoteVideoTrack>>(
     new Map()
   );
@@ -106,6 +187,12 @@ export const useAgoraCall = () => {
               new Set([...prev.remoteUsers, user.uid.toString()])
             ),
           }));
+
+          // Resync composition recording if active
+          if (isComposedRecordingRef.current) {
+            syncVideoElements();
+            syncAudioNodes();
+          }
         }
       );
 
@@ -119,6 +206,12 @@ export const useAgoraCall = () => {
             (uid) => uid !== user.uid.toString()
           ),
         }));
+
+        // Resync composition recording if active
+        if (isComposedRecordingRef.current) {
+          syncVideoElements();
+          syncAudioNodes();
+        }
       });
 
       agoraClient.on("user-left", (user: IAgoraRTCRemoteUser) => {
@@ -131,6 +224,12 @@ export const useAgoraCall = () => {
             (uid) => uid !== user.uid.toString()
           ),
         }));
+
+        // Resync composition recording if active
+        if (isComposedRecordingRef.current) {
+          syncVideoElements();
+          syncAudioNodes();
+        }
       });
     };
 
@@ -139,7 +238,7 @@ export const useAgoraCall = () => {
     return () => {
       // Cleanup will be handled by the client state change
     };
-  }, []);
+  }, [syncVideoElements, syncAudioNodes]);
 
   const generateToken = async (
     channelName: string,
@@ -328,58 +427,95 @@ export const useAgoraCall = () => {
 
   const startRecording = async () => {
     try {
-      if (!callState.isConnected) {
-        throw new Error("No active call to record");
+      if (!callState.isConnected) throw new Error("No active call to record");
+
+      console.log("Starting composition recording...");
+
+      // 1) Create canvas for video composition (720p by default)
+      const canvas = document.createElement("canvas");
+      canvas.width = 1280;
+      canvas.height = 720;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Cannot get 2D context");
+
+      composeCanvasRef.current = canvas;
+      composeCtxRef.current = ctx;
+
+      // 2) Audio mixing graph
+      const AudioCtx =
+        typeof AudioContext !== "undefined"
+          ? AudioContext
+          : (
+              window as typeof window & {
+                webkitAudioContext?: typeof AudioContext;
+              }
+            ).webkitAudioContext;
+
+      if (!AudioCtx) {
+        throw new Error("AudioContext not supported");
       }
 
-      console.log("Starting recording...");
+      const ac: AudioContext = new AudioCtx();
+      const dest = ac.createMediaStreamDestination();
+      audioCtxRef.current = ac;
+      audioDestRef.current = dest;
 
-      // Create a new MediaStream to combine all tracks
-      const combinedStream = new MediaStream();
+      // 3) Prepare initial sources
+      syncVideoElements();
+      syncAudioNodes();
 
-      // Add local audio track
-      if (localAudioTrack) {
-        const localAudioMediaTrack = localAudioTrack.getMediaStreamTrack();
-        combinedStream.addTrack(localAudioMediaTrack);
-        console.log("Added local audio track");
-      }
+      // 4) Draw loop — simple responsive grid
+      const draw = () => {
+        if (!composeCanvasRef.current || !composeCtxRef.current) return;
 
-      // Add local video track
-      if (localVideoTrack && callState.isVideoEnabled) {
-        const localVideoMediaTrack = localVideoTrack.getMediaStreamTrack();
-        combinedStream.addTrack(localVideoMediaTrack);
-        console.log("Added local video track");
-      }
+        syncVideoElements(); // keep up with joins/leaves
+        syncAudioNodes(); // audio nodes are cheap to check too
 
-      // Add remote audio tracks
-      remoteAudioTracksRef.current.forEach((remoteAudioTrack, uid) => {
-        const remoteAudioMediaTrack = remoteAudioTrack.getMediaStreamTrack();
-        combinedStream.addTrack(remoteAudioMediaTrack);
-        console.log("Added remote audio track for user:", uid);
-      });
+        const videos = Array.from(videoElsRef.current.values());
+        const W = composeCanvasRef.current.width;
+        const H = composeCanvasRef.current.height;
 
-      // Add remote video tracks
-      remoteVideoTracksRef.current.forEach((remoteVideoTrack, uid) => {
-        const remoteVideoMediaTrack = remoteVideoTrack.getMediaStreamTrack();
-        combinedStream.addTrack(remoteVideoMediaTrack);
-        console.log("Added remote video track for user:", uid);
-      });
+        // black background
+        composeCtxRef.current.fillStyle = "#000";
+        composeCtxRef.current.fillRect(0, 0, W, H);
 
-      // Check if we have any tracks
-      if (combinedStream.getTracks().length === 0) {
-        throw new Error("No media tracks available for recording");
-      }
+        if (videos.length > 0) {
+          // grid calc
+          const cols = Math.ceil(Math.sqrt(videos.length));
+          const rows = Math.ceil(videos.length / cols);
+          const cellW = Math.floor(W / cols);
+          const cellH = Math.floor(H / rows);
 
-      console.log(
-        "Total tracks in combined stream:",
-        combinedStream.getTracks().length
-      );
+          videos.forEach((vid, i) => {
+            const r = Math.floor(i / cols);
+            const c = i % cols;
+            try {
+              composeCtxRef.current!.drawImage(
+                vid,
+                c * cellW,
+                r * cellH,
+                cellW,
+                cellH
+              );
+            } catch {}
+          });
+        }
 
-      // Create optimized MediaRecorder
-      const mediaRecorder = createOptimizedRecorder(combinedStream);
-      if (!mediaRecorder) {
-        throw new Error("Failed to create MediaRecorder");
-      }
+        drawRAFRef.current = requestAnimationFrame(draw);
+      };
+      draw();
+
+      // 5) Build the final composed stream (canvas video + mixed audio)
+      const canvasStream = canvas.captureStream(30); // 30 fps
+      const final = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...dest.stream.getAudioTracks(),
+      ]);
+      composedStreamRef.current = final;
+
+      // 6) Record it with your existing helper
+      const mediaRecorder = createOptimizedRecorder(final);
+      if (!mediaRecorder) throw new Error("Failed to create MediaRecorder");
 
       console.log(
         "Using MediaRecorder with MIME type:",
@@ -412,9 +548,10 @@ export const useAgoraCall = () => {
       // Start recording
       mediaRecorder.start(1000); // Collect data every second
       recordingStartTimeRef.current = new Date();
+      isComposedRecordingRef.current = true;
 
       setCallState((prev) => ({ ...prev, isRecording: true }));
-      console.log("Recording started successfully");
+      console.log("Composition recording started successfully");
     } catch (error) {
       console.error("Error starting recording:", error);
       throw error;
@@ -422,13 +559,82 @@ export const useAgoraCall = () => {
   };
 
   const stopRecording = () => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === "recording"
-    ) {
-      mediaRecorderRef.current.stop();
-      setCallState((prev) => ({ ...prev, isRecording: false }));
-      recordingStartTimeRef.current = null;
+    const mr = mediaRecorderRef.current;
+    if (mr && mr.state === "recording") {
+      mr.stop();
+    }
+
+    // stop draw loop
+    if (drawRAFRef.current) {
+      cancelAnimationFrame(drawRAFRef.current);
+      drawRAFRef.current = null;
+    }
+
+    // release video helper elements
+    videoElsRef.current.forEach((v) => {
+      try {
+        v.pause();
+      } catch {}
+      v.srcObject = null;
+    });
+    videoElsRef.current.clear();
+
+    // stop composed stream tracks
+    if (composedStreamRef.current) {
+      composedStreamRef.current.getTracks().forEach((t) => t.stop());
+      composedStreamRef.current = null;
+    }
+
+    // close audio context
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close().catch(() => {});
+      audioCtxRef.current = null;
+      audioDestRef.current = null;
+      audioSourcesRef.current.clear();
+    }
+
+    composeCanvasRef.current = null;
+    composeCtxRef.current = null;
+    isComposedRecordingRef.current = false;
+
+    setCallState((prev) => ({ ...prev, isRecording: false }));
+    recordingStartTimeRef.current = null;
+  };
+
+  // Optional screen recording function for capturing the entire UI
+  const startScreenRecording = async () => {
+    try {
+      const display = await navigator.mediaDevices.getDisplayMedia({
+        video: { frameRate: 30 }, // user picks window/tab
+        audio: true, // includes tab audio (Chrome) or system audio if allowed
+      });
+
+      const mediaRecorder = createOptimizedRecorder(display);
+      if (!mediaRecorder) throw new Error("Failed to create MediaRecorder");
+
+      mediaRecorderRef.current = mediaRecorder;
+      recordedChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+      mediaRecorder.onstop = async () => {
+        const recordedBlob = new Blob(recordedChunksRef.current, {
+          type: mediaRecorder.mimeType || "video/webm",
+        });
+        await processRecording(recordedBlob);
+      };
+
+      mediaRecorder.start(1000);
+      setCallState((p) => ({ ...p, isRecording: true }));
+
+      // if user stops sharing via UI, reflect it
+      display.getVideoTracks()[0].addEventListener("ended", () => {
+        stopRecording();
+      });
+    } catch (e) {
+      console.error(e);
+      alert("Screen recording was not started.");
     }
   };
 
@@ -484,5 +690,6 @@ export const useAgoraCall = () => {
     getRemoteVideoTrack,
     startRecording,
     stopRecording,
+    startScreenRecording,
   };
 };
