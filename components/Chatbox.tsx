@@ -39,6 +39,13 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
   const [isAudioCall, setIsAudioCall] = useState(false);
   const [currentChannelName, setCurrentChannelName] = useState<string>("");
+  const [activeCall, setActiveCall] = useState<{
+    channelName: string;
+    isVideoCall: boolean;
+    participants: string[];
+    startedBy: string;
+    startedAt: string;
+  } | null>(null);
   const [incomingCall, setIncomingCall] = useState<{
     isOpen: boolean;
     callerName: string;
@@ -116,6 +123,62 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
             return [...history, callInvitationMessage];
           });
         }
+      } else if (message.name === "call-started") {
+        const callData = message.data as {
+          channelName: string;
+          isVideoCall: boolean;
+          startedBy: string;
+          startedByName: string;
+        };
+
+        setActiveCall({
+          channelName: callData.channelName,
+          isVideoCall: callData.isVideoCall,
+          participants: [callData.startedBy],
+          startedBy: callData.startedByName,
+          startedAt: new Date().toISOString(),
+        });
+      } else if (message.name === "call-ended") {
+        setActiveCall(null);
+      } else if (message.name === "participant-joined") {
+        const participantData = message.data as {
+          userId: string;
+          channelName: string;
+        };
+
+        setActiveCall((prev) => {
+          if (prev && prev.channelName === participantData.channelName) {
+            return {
+              ...prev,
+              participants: [
+                ...new Set([...prev.participants, participantData.userId]),
+              ],
+            };
+          }
+          return prev;
+        });
+      } else if (message.name === "participant-left") {
+        const participantData = message.data as {
+          userId: string;
+          channelName: string;
+        };
+
+        setActiveCall((prev) => {
+          if (prev && prev.channelName === participantData.channelName) {
+            const newParticipants = prev.participants.filter(
+              (p) => p !== participantData.userId
+            );
+            // If no participants left, end the call
+            if (newParticipants.length === 0) {
+              return null;
+            }
+            return {
+              ...prev,
+              participants: newParticipants,
+            };
+          }
+          return prev;
+        });
       }
     }
   );
@@ -199,6 +262,17 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
       },
     });
 
+    // Broadcast that call has started
+    await channel.publish({
+      name: "call-started",
+      data: {
+        channelName,
+        isVideoCall: false,
+        startedBy: currentUser.id,
+        startedByName: currentUser.name,
+      },
+    });
+
     setIsAudioCall(true);
     setIsVideoCallOpen(true);
   };
@@ -219,13 +293,56 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
       },
     });
 
+    // Broadcast that call has started
+    await channel.publish({
+      name: "call-started",
+      data: {
+        channelName,
+        isVideoCall: true,
+        startedBy: currentUser.id,
+        startedByName: currentUser.name,
+      },
+    });
+
     setIsAudioCall(false);
     setIsVideoCallOpen(true);
   };
 
-  const handleCloseCall = () => {
+  const handleJoinCall = async () => {
+    if (!activeCall) return;
+
+    setCurrentChannelName(activeCall.channelName);
+    setIsAudioCall(!activeCall.isVideoCall);
+    setIsVideoCallOpen(true);
+
+    // Broadcast that user joined the call
+    await channel.publish({
+      name: "participant-joined",
+      data: {
+        userId: currentUser.id,
+        channelName: activeCall.channelName,
+      },
+    });
+  };
+
+  const handleEndCall = async () => {
+    if (currentChannelName) {
+      // Broadcast that user left the call
+      await channel.publish({
+        name: "participant-left",
+        data: {
+          userId: currentUser.id,
+          channelName: currentChannelName,
+        },
+      });
+    }
+
     setIsVideoCallOpen(false);
     setCurrentChannelName("");
+  };
+
+  const handleCloseCall = async () => {
+    await handleEndCall();
   };
 
   const handleAcceptCall = () => {
@@ -361,59 +478,75 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
               Чат с пациентом
             </h3>
           </div>
-          <div className="flex gap-3">
-            {/* Only show call buttons for doctors and nurses, not patients */}
-            {(currentUser.role === "DOCTOR" ||
-              currentUser.role === "NURSE") && (
-              <>
-                {/* Phone Icon */}
+          <div className="flex gap-3 items-center">
+            {/* Active Call Indicator */}
+            {activeCall && !isVideoCallOpen && (
+              <div className="flex items-center space-x-2 bg-green-100 px-3 py-2 rounded-lg">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-700">
+                  Идет {activeCall.isVideoCall ? "видео" : "аудио"} звонок
+                </span>
                 <button
-                  type="button"
-                  onClick={handleAudioCall}
-                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                  title="Голосовой звонок"
+                  onClick={handleJoinCall}
+                  className="text-xs bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-gray-600"
-                  >
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-                  </svg>
+                  Присоединиться
                 </button>
-
-                {/* Video Icon */}
-                <button
-                  type="button"
-                  onClick={handleVideoCall}
-                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-                  title="Видео звонок"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="text-gray-600"
-                  >
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                </button>
-              </>
+              </div>
             )}
+
+            {/* Only show call buttons for doctors and nurses, not patients */}
+            {(currentUser.role === "DOCTOR" || currentUser.role === "NURSE") &&
+              !activeCall && (
+                <>
+                  {/* Phone Icon */}
+                  <button
+                    type="button"
+                    onClick={handleAudioCall}
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                    title="Голосовой звонок"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-gray-600"
+                    >
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                    </svg>
+                  </button>
+
+                  {/* Video Icon */}
+                  <button
+                    type="button"
+                    onClick={handleVideoCall}
+                    className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                    title="Видео звонок"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-gray-600"
+                    >
+                      <polygon points="23 7 16 12 23 17 23 7" />
+                      <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                    </svg>
+                  </button>
+                </>
+              )}
           </div>
         </div>
       </div>

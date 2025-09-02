@@ -187,79 +187,131 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
               </div>
             </div>
           ) : (
-            // Call in progress
+            // Call in progress - Multi-participant layout
             <>
-              {/* Main video area */}
-              <div className="w-full h-full relative">
-                {/* Remote video (main area) */}
-                {callState.remoteUsers.length > 0 ? (
-                  <div className="w-full h-full">
-                    {callState.remoteUsers.map((uid) => (
+              {/* Multi-participant video grid */}
+              <div className="w-full h-full relative flex flex-col">
+                {/* Your video at the top center */}
+                {isVideoCall && (
+                  <div className="flex justify-center p-2">
+                    <div className="w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-blue-400 shadow-lg relative">
                       <div
-                        key={uid}
                         ref={(el) => {
-                          if (el) {
-                            remoteVideoRefs.current.set(uid, el);
-                            // Force re-render of remote video when element is ready
-                            const remoteVideoTrack = getRemoteVideoTrack(uid);
-                            if (remoteVideoTrack) {
-                              setTimeout(() => {
-                                remoteVideoTrack.play(el);
-                              }, 100);
-                            }
+                          if (el && localVideoTrack) {
+                            localVideoRef.current = el;
+                            setTimeout(() => {
+                              localVideoTrack.play(el);
+                            }, 100);
                           }
                         }}
-                        className="w-full h-full bg-gray-800"
+                        className="w-full h-full"
                         style={{ objectFit: "cover" }}
                       />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-white">
-                    <div className="text-center">
-                      <div className="w-32 h-32 mx-auto bg-gray-600 rounded-full flex items-center justify-center mb-4">
-                        <svg
-                          className="w-16 h-16"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
+                      {!localVideoTrack && (
+                        <div className="absolute inset-0 flex items-center justify-center text-white text-sm bg-gray-700">
+                          Камера выключена
+                        </div>
+                      )}
+                      <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                        Вы
                       </div>
-                      <p className="text-xl">Ожидание подключения...</p>
                     </div>
                   </div>
                 )}
 
-                {/* Local video (small overlay) - Always show if video call */}
-                {isVideoCall && (
-                  <div className="absolute top-4 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden border-2 border-white shadow-lg">
-                    <div
-                      ref={(el) => {
-                        if (el && localVideoTrack) {
-                          localVideoRef.current = el;
-                          // Force re-render of local video when element is ready
-                          setTimeout(() => {
-                            localVideoTrack.play(el);
-                          }, 100);
-                        }
-                      }}
-                      className="w-full h-full"
-                      style={{ objectFit: "cover" }}
-                    />
-                    {!localVideoTrack && (
-                      <div className="absolute inset-0 flex items-center justify-center text-white text-sm bg-gray-700">
-                        Камера выключена
+                {/* Remote participants area */}
+                <div className="flex-1 flex items-center justify-center p-4">
+                  {callState.remoteUsers.length > 0 ? (
+                    <>
+                      {callState.remoteUsers.length === 1 ? (
+                        // Single participant - large centered video
+                        <div className="w-full h-full max-w-3xl max-h-full bg-gray-800 rounded-lg overflow-hidden border-2 border-green-400 shadow-lg relative">
+                          <div
+                            ref={(el) => {
+                              if (el) {
+                                const uid = callState.remoteUsers[0];
+                                remoteVideoRefs.current.set(uid, el);
+                                const remoteVideoTrack =
+                                  getRemoteVideoTrack(uid);
+                                if (remoteVideoTrack) {
+                                  setTimeout(() => {
+                                    remoteVideoTrack.play(el);
+                                  }, 100);
+                                }
+                              }
+                            }}
+                            className="w-full h-full"
+                            style={{ objectFit: "cover" }}
+                          />
+                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                            {recipientName}
+                          </div>
+                        </div>
+                      ) : (
+                        // Multiple participants - grid layout
+                        <div
+                          className={`flex gap-4 flex-wrap justify-center items-center ${
+                            callState.remoteUsers.length === 2
+                              ? "w-full max-w-4xl"
+                              : "w-full"
+                          }`}
+                        >
+                          {callState.remoteUsers.map((uid, index) => (
+                            <div
+                              key={uid}
+                              className={`bg-gray-800 rounded-lg overflow-hidden border-2 border-green-400 shadow-lg relative ${
+                                callState.remoteUsers.length === 2
+                                  ? "w-80 h-60" // Two participants - medium side by side
+                                  : "w-64 h-48" // Multiple participants - smaller
+                              }`}
+                            >
+                              <div
+                                ref={(el) => {
+                                  if (el) {
+                                    remoteVideoRefs.current.set(uid, el);
+                                    const remoteVideoTrack =
+                                      getRemoteVideoTrack(uid);
+                                    if (remoteVideoTrack) {
+                                      setTimeout(() => {
+                                        remoteVideoTrack.play(el);
+                                      }, 100);
+                                    }
+                                  }
+                                }}
+                                className="w-full h-full"
+                                style={{ objectFit: "cover" }}
+                              />
+                              <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                Участник {index + 1}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-white">
+                      <div className="text-center">
+                        <div className="w-32 h-32 mx-auto bg-gray-600 rounded-full flex items-center justify-center mb-4">
+                          <svg
+                            className="w-16 h-16"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </div>
+                        <p className="text-xl">Ожидание подключения...</p>
                       </div>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
 
-                {/* Audio-only indicator */}
+                {/* Audio-only indicator for current user */}
                 {!isVideoCall && (
                   <div className="absolute top-4 right-4 bg-gray-800 rounded-lg p-4 border-2 border-white shadow-lg">
                     <div className="text-white text-center">
@@ -270,7 +322,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                       >
                         <path
                           fillRule="evenodd"
-                          d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
+                          d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 715 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z"
                           clipRule="evenodd"
                         />
                       </svg>
@@ -367,7 +419,6 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
             {/* Recording Buttons */}
             <div className="flex space-x-2">
               {/* Composition Recording Button */}
-
               {/* Screen Recording Button */}
               <button
                 onClick={
