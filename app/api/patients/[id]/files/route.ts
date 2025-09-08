@@ -3,8 +3,9 @@ import { files, users } from "@/db/schema";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { isMedicalProvider } from "@/lib/utils/auth";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
 
 const fileSchema = z.array(
   z.object({
@@ -35,6 +36,9 @@ export const GET = async (
   }
 
   try {
+    // Verify patient access
+    await verifyPatientAccess(resolvedParams.id, session.user);
+
     const data = await db
       .select({
         id: files.id,
@@ -46,13 +50,7 @@ export const GET = async (
       })
       .from(files)
       .leftJoin(users, eq(files.uploadedBy, users.id))
-      .where(
-        and(
-          eq(files.patientId, resolvedParams.id),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
+      .where(eq(files.patientId, resolvedParams.id));
 
     const validated = fileSchema.parse(
       data.map((item) => ({

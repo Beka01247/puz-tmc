@@ -1,10 +1,11 @@
 import { db } from "@/db/drizzle";
-import { measurements, users } from "@/db/schema";
+import { measurements } from "@/db/schema";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { isMedicalProvider } from "@/lib/utils/auth";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
 
 const measurementSchema = z.array(
   z.object({
@@ -34,6 +35,9 @@ export const GET = async (
   }
 
   try {
+    // Verify patient access
+    await verifyPatientAccess(resolvedParams.id, session.user);
+
     const data = await db
       .select({
         id: measurements.id,
@@ -43,14 +47,7 @@ export const GET = async (
         createdAt: measurements.createdAt,
       })
       .from(measurements)
-      .leftJoin(users, eq(measurements.userId, users.id))
-      .where(
-        and(
-          eq(measurements.userId, resolvedParams.id),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
+      .where(eq(measurements.userId, resolvedParams.id));
 
     const validated = measurementSchema.parse(
       data.map((item) => ({
@@ -61,6 +58,16 @@ export const GET = async (
     return NextResponse.json(validated);
   } catch (error) {
     console.error("GET /patients/[id]/measurements error:", error);
+
+    if (error instanceof Error) {
+      if (error.message === "Пациент не найден") {
+        return NextResponse.json({ error: error.message }, { status: 404 });
+      }
+      if (error.message === "Доступ запрещен") {
+        return NextResponse.json({ error: error.message }, { status: 403 });
+      }
+    }
+
     return NextResponse.json(
       {
         error: "Не удалось получить данные мониторинга",

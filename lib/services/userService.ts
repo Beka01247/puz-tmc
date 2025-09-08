@@ -19,11 +19,20 @@ export interface UserInfo {
   id: string;
   fullName: string;
   email: string;
+  region: string | null;
   city: string;
+  district: string | null;
+  settlement: string | null;
+  village: string | null;
   organization: string;
   subdivision: string | null;
-  district: string | null;
-  userType: "DOCTOR" | "NURSE" | "PATIENT";
+  userType:
+    | "DOCTOR"
+    | "NURSE"
+    | "PATIENT"
+    | "REGIONAL_ADMIN"
+    | "CITY_ADMIN"
+    | "DISTRICT_ADMIN";
   doctorType: "GENERAL" | "SPECIALIST" | null;
   department: string | null;
   specialization: string | null;
@@ -45,10 +54,13 @@ export async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
         id: users.id,
         fullName: users.fullName,
         email: users.email,
+        region: users.region,
         city: users.city,
+        district: users.district,
+        settlement: users.settlement,
+        village: users.village,
         organization: users.organization,
         subdivision: users.subdivision,
-        district: users.district,
         userType: users.userType,
         doctorType: users.doctorType,
         department: users.department,

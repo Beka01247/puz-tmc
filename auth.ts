@@ -49,11 +49,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user[0].email,
           fullName: user[0].fullName,
           userType: frontendUserType,
-          organization: user[0].organization,
+          region: user[0].region,
           city: user[0].city,
-          subdivision: user[0].subdivision,
           district: user[0].district,
+          settlement: user[0].settlement,
+          village: user[0].village,
+          organization: user[0].organization,
           department: user[0].department,
+          subdivision: user[0].subdivision,
           specialization: user[0].specialization,
           avatar: user[0].avatar,
           iin: user[0].iin,
@@ -72,11 +75,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.email = user.email;
         token.fullName = user.fullName;
         token.userType = user.userType;
-        token.organization = user.organization;
+        token.region = user.region;
         token.city = user.city;
-        token.subdivision = user.subdivision;
         token.district = user.district;
+        token.settlement = user.settlement;
+        token.village = user.village;
+        token.organization = user.organization;
         token.department = user.department;
+        token.subdivision = user.subdivision;
         token.specialization = user.specialization;
         token.avatar = user.avatar;
         token.iin = user.iin;
@@ -91,11 +97,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.fullName = token.fullName as string;
         session.user.avatar = token.avatar as string;
         session.user.userType = token.userType as string;
-        session.user.organization = token.organization as string;
+        session.user.region = token.region as string;
         session.user.city = token.city as string;
-        session.user.subdivision = token.subdivision as string;
         session.user.district = token.district as string;
+        session.user.settlement = token.settlement as string;
+        session.user.village = token.village as string;
+        session.user.organization = token.organization as string;
         session.user.department = token.department as string;
+        session.user.subdivision = token.subdivision as string;
         session.user.specialization = token.specialization as string;
         session.user.iin = token.iin as string;
         session.user.telephone = token.telephone as string;

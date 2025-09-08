@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
-import { screenings, patientScreenings, users } from "@/db/schema";
+import { screenings, patientScreenings } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 const screeningSchema = z.object({
   screeningId: z.string().uuid("Неверный формат ID"),
@@ -29,9 +31,7 @@ export async function POST(
     if (
       !session ||
       !session.user?.id ||
-      !["DOCTOR", "DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
@@ -39,21 +39,8 @@ export async function POST(
       );
     }
 
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const body = await request.json();
     const { screeningId, scheduledDate, notes } = screeningSchema.parse(body);
@@ -87,6 +74,16 @@ export async function POST(
     return NextResponse.json(newPatientScreening, { status: 201 });
   } catch (error) {
     console.error("Ошибка при создании скрининга:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
@@ -112,14 +109,8 @@ export async function PATCH(
       );
     }
 
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.id, resolvedParams.id));
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const body = await request.json();
     const { patientScreeningId, status, result, notes } =
@@ -128,9 +119,7 @@ export async function PATCH(
     // Check authorization based on status update type
     if (
       (status === "CONFIRMED" || status === "REJECTED") &&
-      !["DOCTOR", "DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
@@ -176,6 +165,16 @@ export async function PATCH(
     return NextResponse.json(updatedScreening);
   } catch (error) {
     console.error("Ошибка при обновлении скрининга:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
@@ -201,14 +200,8 @@ export async function GET(
       );
     }
 
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.id, resolvedParams.id));
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const patientScreeningsList = await db
       .select({
@@ -237,6 +230,16 @@ export async function GET(
     return NextResponse.json(patientScreeningsList);
   } catch (error) {
     console.error("Ошибка при получении скринингов:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return NextResponse.json(
       { error: "Не удалось получить скрининги" },
       { status: 500 }

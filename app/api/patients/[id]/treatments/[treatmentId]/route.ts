@@ -1,9 +1,10 @@
 import { db } from "@/db/drizzle";
-import { treatments, users, treatmentTimes, treatmentLogs } from "@/db/schema";
+import { treatments, treatmentTimes, treatmentLogs } from "@/db/schema";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { eq, and } from "drizzle-orm";
 import { isMedicalProvider } from "@/lib/utils/auth";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
 
 export const DELETE = async (
   _: Request,
@@ -26,22 +27,8 @@ export const DELETE = async (
     const patientId = resolvedParams.id;
     const treatmentId = resolvedParams.treatmentId;
 
-    // Verify patient exists and is accessible
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, patientId),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access using new system
+    await verifyPatientAccess(patientId, session.user);
 
     // Verify treatment exists and belongs to the patient
     const [treatment] = await db
@@ -77,6 +64,16 @@ export const DELETE = async (
       "DELETE /patients/[id]/treatments/[treatmentId] error:",
       error
     );
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     const errorMessage =
       error instanceof Error ? error.message : "Неизвестная ошибка";
     return NextResponse.json(

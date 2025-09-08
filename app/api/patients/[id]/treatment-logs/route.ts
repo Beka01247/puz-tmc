@@ -1,9 +1,10 @@
 import { db } from "@/db/drizzle";
-import { treatmentLogs, treatments, users } from "@/db/schema";
+import { treatmentLogs, treatments } from "@/db/schema";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
 
 const treatmentLogSchema = z.object({
   treatmentTimeId: z.string().uuid(),
@@ -26,21 +27,7 @@ export const GET = async (
 
   try {
     // Verify access to patient
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient && session.user.id !== resolvedParams.id) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     // Fetch treatment logs for the patient
     const logs = await db
@@ -59,6 +46,16 @@ export const GET = async (
     return NextResponse.json(logs);
   } catch (error) {
     console.error("GET /patients/[id]/treatment-logs error:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return NextResponse.json(
       { error: "Не удалось получить записи о лечении" },
       { status: 500 }
@@ -81,21 +78,7 @@ export const POST = async (
     const validated = treatmentLogSchema.parse(body);
 
     // Verify access to patient
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient && session.user.id !== resolvedParams.id) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     // Verify treatment belongs to patient
     const [treatment] = await db
@@ -158,6 +141,16 @@ export const POST = async (
     }
   } catch (error) {
     console.error("POST /patients/[id]/treatment-logs error:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }

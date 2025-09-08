@@ -17,7 +17,10 @@ export function isMedicalProvider(userType: string): boolean {
     userType === "DOCTOR" ||
     userType === "DISTRICT_DOCTOR" ||
     userType === "SPECIALIST_DOCTOR" ||
-    userType === "NURSE"
+    userType === "NURSE" ||
+    userType === "REGIONAL_ADMIN" ||
+    userType === "CITY_ADMIN" ||
+    userType === "DISTRICT_ADMIN"
   );
 }
 
@@ -28,6 +31,20 @@ export function canPerformMedicalActions(userType: string): boolean {
   return (
     userType === "DISTRICT_DOCTOR" ||
     userType === "SPECIALIST_DOCTOR" ||
-    userType === "NURSE"
+    userType === "NURSE" ||
+    userType === "REGIONAL_ADMIN" ||
+    userType === "CITY_ADMIN" ||
+    userType === "DISTRICT_ADMIN"
+  );
+}
+
+/**
+ * Check if a user has admin privileges (can see patients across broader geographic areas)
+ */
+export function isAdminRole(userType: string): boolean {
+  return (
+    userType === "REGIONAL_ADMIN" ||
+    userType === "CITY_ADMIN" ||
+    userType === "DISTRICT_ADMIN"
   );
 }

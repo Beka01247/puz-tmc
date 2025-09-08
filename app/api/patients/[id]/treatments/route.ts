@@ -3,8 +3,9 @@ import { treatments, treatmentTimes, users } from "@/db/schema";
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { isMedicalProvider } from "@/lib/utils/auth";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
 
 const treatmentSchema = z.object({
   medication: z.string().min(1, "Медикамент обязателен"),
@@ -32,22 +33,8 @@ export const GET = async (
   }
 
   try {
-    // Verify patient exists and is accessible
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     // Fetch treatments with provider name and times
     const treatmentsData = await db
@@ -113,21 +100,8 @@ export const POST = async (
     const body = await request.json();
     const validated = treatmentSchema.parse(body);
 
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const [newTreatment] = await db
       .insert(treatments)

@@ -5,6 +5,7 @@ import { users, diagnoses, patientAlerts, measurements } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { calculateAgeFromIIN } from "@/lib/utils/ageCalculator";
+import { getPatientAccessConditions } from "@/lib/utils/patientAccess";
 
 // Helper function to translate measurement types to Russian
 function getMeasurementTypeInRussian(measurementType: string): string {
@@ -66,13 +67,7 @@ export async function GET() {
       })
       .from(users)
       .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
-      .where(
-        and(
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      )
+      .where(and(...getPatientAccessConditions(session.user)))
       .groupBy(users.id, users.fullName, users.iin);
 
     // Then, get alert information for each patient

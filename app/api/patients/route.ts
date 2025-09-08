@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
 import { users, diagnoses, riskGroups, invitations } from "@/db/schema";
-import { eq, and, ilike } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
 import { calculateAgeFromIIN } from "@/lib/utils/ageCalculator";
 import { isMedicalProvider } from "@/lib/utils/auth";
+import { getPatientAccessConditions } from "@/lib/utils/patientAccess";
 
 const querySchema = z.object({
   riskGroup: z
@@ -79,12 +80,7 @@ export async function GET(request: Request) {
       .from(users)
       .leftJoin(diagnoses, eq(diagnoses.userId, users.id))
       .where(
-        and(
-          eq(users.userType, "PATIENT"),
-          ilike(users.organization, session.user.organization),
-          ilike(users.city, session.user.city),
-          ...ageConditions
-        )
+        and(...getPatientAccessConditions(session.user), ...ageConditions)
       );
 
     // Add invitation status join only for non-ЖФВ groups

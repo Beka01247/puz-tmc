@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
-import { pregnancies, users } from "@/db/schema";
+import { pregnancies } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 const pregnancySchema = z.object({
   lmp: z.string().datetime(),
@@ -19,9 +21,7 @@ export async function POST(
     if (
       !session ||
       !session.user?.id ||
-      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
@@ -29,21 +29,8 @@ export async function POST(
       );
     }
 
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const body = await request.json();
     const { lmp } = pregnancySchema.parse(body);
@@ -60,6 +47,16 @@ export async function POST(
     return NextResponse.json(newPregnancy, { status: 201 });
   } catch (error) {
     console.error("Ошибка при добавлении беременности:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.errors }, { status: 400 });
     }
@@ -88,19 +85,20 @@ export async function GET(
     if (
       !session ||
       !session.user?.id ||
-      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
+      !isMedicalProvider(session.user.userType)
     ) {
       console.log("Pregnancy access denied:", {
         userType: session?.user?.userType,
-        allowedTypes: ["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"],
+        isMedicalProvider: isMedicalProvider(session?.user?.userType || ""),
       });
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
       );
     }
+
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const [pregnancy] = await db
       .select()
@@ -115,6 +113,16 @@ export async function GET(
     return NextResponse.json(pregnancy || null);
   } catch (error) {
     console.error("Ошибка при получении информации о беременности:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return NextResponse.json(
       { error: "Не удалось получить информацию о беременности" },
       { status: 500 }
@@ -132,15 +140,16 @@ export async function DELETE(
     if (
       !session ||
       !session.user?.id ||
-      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
+      !isMedicalProvider(session.user.userType)
     ) {
       return NextResponse.json(
         { error: "Неавторизованный доступ" },
         { status: 401 }
       );
     }
+
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     await db
       .update(pregnancies)
@@ -155,6 +164,16 @@ export async function DELETE(
     return NextResponse.json({ message: "Беременность завершена" });
   } catch (error) {
     console.error("Ошибка при завершении беременности:", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return NextResponse.json(
       { error: "Не удалось завершить беременность" },
       { status: 500 }

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
 import { isMedicalProvider } from "@/lib/utils/auth";
+import { canAccessPatient } from "@/lib/utils/patientAccess";
 
 const consultationSchema = z.object({
   consultationDate: z.string().refine((date) => !isNaN(Date.parse(date)), {
@@ -25,21 +26,38 @@ export const GET = async (
   }
 
   try {
-    // Verify patient exists and is accessible
+    // Verify patient exists and get their details
     const [patient] = await db
-      .select({ id: users.id })
+      .select({
+        id: users.id,
+        region: users.region,
+        city: users.city,
+        district: users.district,
+        settlement: users.settlement,
+        village: users.village,
+        organization: users.organization,
+      })
       .from(users)
       .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
+        and(eq(users.id, resolvedParams.id), eq(users.userType, "PATIENT"))
       );
 
     if (!patient) {
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
+    }
+
+    // Check if user can access this patient
+    if (
+      !canAccessPatient(session.user, {
+        region: patient.region || undefined,
+        city: patient.city,
+        district: patient.district || undefined,
+        settlement: patient.settlement || undefined,
+        village: patient.village || undefined,
+        organization: patient.organization,
+      })
+    ) {
+      return NextResponse.json({ error: "Доступ запрещен" }, { status: 403 });
     }
 
     // Fetch consultations with provider name
@@ -86,20 +104,38 @@ export const POST = async (
     const body = await request.json();
     const validated = consultationSchema.parse(body);
 
+    // Verify patient exists and get their details
     const [patient] = await db
-      .select({ id: users.id })
+      .select({
+        id: users.id,
+        region: users.region,
+        city: users.city,
+        district: users.district,
+        settlement: users.settlement,
+        village: users.village,
+        organization: users.organization,
+      })
       .from(users)
       .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
+        and(eq(users.id, resolvedParams.id), eq(users.userType, "PATIENT"))
       );
 
     if (!patient) {
       return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
+    }
+
+    // Check if user can access this patient
+    if (
+      !canAccessPatient(session.user, {
+        region: patient.region || undefined,
+        city: patient.city,
+        district: patient.district || undefined,
+        settlement: patient.settlement || undefined,
+        village: patient.village || undefined,
+        organization: patient.organization,
+      })
+    ) {
+      return NextResponse.json({ error: "Доступ запрещен" }, { status: 403 });
     }
 
     const [newConsultation] = await db

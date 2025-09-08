@@ -6,6 +6,7 @@ import { UserType } from "@/constants/userTypes";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MedicalActivityCard } from "@/components/MedicalActivityCard";
 import { TreatmentCard } from "@/components/TreatmentCard";
+import CreatePatientModal from "@/components/CreatePatientModal";
 import {
   formatGender,
   formatUserType,
@@ -81,7 +82,25 @@ const DashboardClient = () => {
   return (
     <DashboardLayout userType={userType} session={session}>
       <div className="space-y-6">
-        <h2 className="text-2xl font-bold">Личный кабинет</h2>
+        <div className="flex justify-between items-center">
+          <h2 className="text-2xl font-bold">Личный кабинет</h2>
+          {userType !== "PATIENT" && (
+            <CreatePatientModal
+              creatorInfo={{
+                region: userInfo.region || undefined,
+                city: userInfo.city,
+                district: userInfo.district || undefined,
+                settlement: userInfo.settlement || undefined,
+                village: userInfo.village || undefined,
+                organization: userInfo.organization,
+              }}
+              onPatientCreated={() => {
+                // Optional: Refresh data or show success message
+                console.log("Patient created successfully");
+              }}
+            />
+          )}
+        </div>
 
         <Card className="bg-white text-black border-gray-600">
           <CardHeader>
@@ -114,9 +133,32 @@ const DashboardClient = () => {
               <span className="font-semibold">Телефон:</span>{" "}
               {userInfo.telephone}
             </p>
+            {userInfo.region && (
+              <p>
+                <span className="font-semibold">Область:</span>{" "}
+                {userInfo.region}
+              </p>
+            )}
             <p>
               <span className="font-semibold">Город:</span> {userInfo.city}
             </p>
+            {userInfo.district && (
+              <p>
+                <span className="font-semibold">Район:</span>{" "}
+                {userInfo.district}
+              </p>
+            )}
+            {userInfo.settlement && (
+              <p>
+                <span className="font-semibold">Поселок:</span>{" "}
+                {userInfo.settlement}
+              </p>
+            )}
+            {userInfo.village && (
+              <p>
+                <span className="font-semibold">Село:</span> {userInfo.village}
+              </p>
+            )}
             <p>
               <span className="font-semibold">Организация:</span>{" "}
               {userInfo.organization}
@@ -124,10 +166,6 @@ const DashboardClient = () => {
             <p>
               <span className="font-semibold">Подразделение:</span>{" "}
               {userInfo.subdivision || "Не указано"}
-            </p>
-            <p>
-              <span className="font-semibold">Район:</span>{" "}
-              {userInfo.district || "Не указано"}
             </p>
             <p>
               <span className="font-semibold">Тип пользователя:</span>{" "}

@@ -6,9 +6,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { userTypeLabels } from "@/constants/userTypes";
 
 const Header = async () => {
   const session = await auth();
@@ -55,18 +58,36 @@ const Header = async () => {
                   </span>
                 </div>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">
+                      {session?.user?.fullName || "User"}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {session?.user?.userType &&
+                        userTypeLabels[
+                          session.user.userType as keyof typeof userTypeLabels
+                        ]}
+                    </p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {session?.user?.organization &&
+                        `${session.user.organization}`}
+                      {session?.user?.city && `, ${session.user.city}`}
+                      {session?.user?.region && `, ${session.user.region}`}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard">
-                    Личный кабинет
-                  </Link>
+                  <Link href="/dashboard">Личный кабинет</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem>
-                  <form 
+                  <form
                     action={async () => {
                       "use server";
                       await signOut({ redirectTo: "/sign-in" });
-                    }} 
+                    }}
                     className="w-full"
                   >
                     <button type="submit" className="w-full text-left">

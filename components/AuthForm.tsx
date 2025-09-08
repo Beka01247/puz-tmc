@@ -85,6 +85,40 @@ const AuthForm = <T extends FieldValues>({
       if (selectedUserType === UserType.SPECIALIST_DOCTOR) {
         return !["district"].includes(fieldName);
       }
+      if (selectedUserType === UserType.REGIONAL_ADMIN) {
+        return ![
+          "organization",
+          "department",
+          "subdivision",
+          "district",
+          "settlement",
+          "village",
+          "specialization",
+        ].includes(fieldName);
+      }
+      if (selectedUserType === UserType.CITY_ADMIN) {
+        return ![
+          "organization",
+          "department",
+          "subdivision",
+          "district",
+          "settlement",
+          "village",
+          "specialization",
+          "region",
+        ].includes(fieldName);
+      }
+      if (selectedUserType === UserType.DISTRICT_ADMIN) {
+        return ![
+          "organization",
+          "department",
+          "subdivision",
+          "settlement",
+          "village",
+          "specialization",
+          "region",
+        ].includes(fieldName);
+      }
       if (
         [UserType.NURSE, UserType.PATIENT].includes(
           selectedUserType as UserType

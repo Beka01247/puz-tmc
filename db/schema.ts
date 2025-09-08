@@ -13,7 +13,14 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const genderEnum = pgEnum("gender", ["МУЖСКОЙ", "ЖЕНСКИЙ", "ЖЕНСКИЙ"]);
-export const userTypeEnum = pgEnum("userType", ["DOCTOR", "NURSE", "PATIENT"]);
+export const userTypeEnum = pgEnum("userType", [
+  "DOCTOR",
+  "NURSE",
+  "PATIENT",
+  "REGIONAL_ADMIN",
+  "CITY_ADMIN",
+  "DISTRICT_ADMIN",
+]);
 export const doctorTypeEnum = pgEnum("doctorType", ["GENERAL", "SPECIALIST"]);
 export const measurementTypeEnum = pgEnum("measurementType", [
   "blood-pressure",
@@ -57,13 +64,16 @@ export const users = pgTable("users", {
   fullName: varchar("full_name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   password: varchar("password", { length: 255 }).notNull(),
+  region: varchar("region", { length: 255 }), // Область
   city: varchar("city", { length: 255 }).notNull(),
-  organization: varchar("organization", { length: 255 }).notNull(),
-  subdivision: varchar("subdivision", { length: 255 }),
-  district: varchar("district", { length: 255 }),
+  district: varchar("district", { length: 255 }), // Район
+  settlement: varchar("settlement", { length: 255 }), // Поселок
+  village: varchar("village", { length: 255 }), // Село
+  organization: varchar("organization", { length: 255 }).notNull(), // Медицинское учреждение
+  department: varchar("department", { length: 255 }), // Отделение
+  subdivision: varchar("subdivision", { length: 255 }), // Подразделение
   userType: userTypeEnum("user_type").default("PATIENT"),
   doctorType: doctorTypeEnum("doctor_type"),
-  department: varchar("department", { length: 255 }),
   specialization: varchar("specialization", { length: 255 }),
   avatar: varchar("avatar", { length: 255 }),
   iin: varchar("iin", { length: 12 }).unique().notNull(),

@@ -18,13 +18,16 @@ const SignUpPage = () => {
         email: "",
         password: "",
         confirmPassword: "",
+        region: "",
         city: "",
+        district: "",
+        settlement: "",
+        village: "",
         organization: "",
         userType: "" as UserType,
         gender: "МУЖСКОЙ" as const,
         department: "",
         subdivision: "",
-        district: "",
         specialization: "",
       }}
       onSubmit={signUp}

@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/drizzle";
 import { fertileWomenRegister } from "@/db/schema";
 import { eq } from "drizzle-orm";
-
 import { auth } from "@/auth";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
+import { isMedicalProvider } from "@/lib/utils/auth";
 
 export async function GET(
   request: NextRequest,
@@ -25,6 +26,9 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
+
     const patientId = resolvedParams.id;
 
     const result = await db
@@ -39,6 +43,16 @@ export async function GET(
     return NextResponse.json(result[0]);
   } catch (error) {
     console.error("[FERTILE_WOMEN_REGISTER_GET]", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -55,14 +69,13 @@ export async function PUT(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Only allow doctors and nurses to update the register
-    if (
-      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
-    ) {
+    // Only allow medical providers to update the register
+    if (!isMedicalProvider(session.user.userType)) {
       return new NextResponse("Forbidden", { status: 403 });
     }
+
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const data = await request.json();
     const patientId = resolvedParams.id;
@@ -86,6 +99,16 @@ export async function PUT(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[FERTILE_WOMEN_REGISTER_UPDATE]", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -102,14 +125,13 @@ export async function POST(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Only allow doctors and nurses to add to the register
-    if (
-      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
-    ) {
+    // Only allow medical providers to add to the register
+    if (!isMedicalProvider(session.user.userType)) {
       return new NextResponse("Forbidden", { status: 403 });
     }
+
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const patientId = resolvedParams.id;
 
@@ -148,6 +170,16 @@ export async function POST(
     return NextResponse.json({ success: true, id: result });
   } catch (error) {
     console.error("[FERTILE_WOMEN_REGISTER_ADD]", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -164,14 +196,13 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Only allow doctors and nurses to remove from the register
-    if (
-      !["DISTRICT_DOCTOR", "SPECIALIST_DOCTOR", "NURSE"].includes(
-        session.user.userType
-      )
-    ) {
+    // Only allow medical providers to remove from the register
+    if (!isMedicalProvider(session.user.userType)) {
       return new NextResponse("Forbidden", { status: 403 });
     }
+
+    // Verify patient access using new system
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const { reason } = await request.json();
 
@@ -193,6 +224,16 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[FERTILE_WOMEN_REGISTER_REMOVE]", error);
+    if (
+      error instanceof Error &&
+      (error.message === "Пациент не найден" ||
+        error.message === "Доступ запрещен")
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.message === "Пациент не найден" ? 404 : 403 }
+      );
+    }
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

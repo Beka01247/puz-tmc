@@ -4,6 +4,9 @@ export enum UserType {
   NURSE = "NURSE", // Медсестра
   PATIENT = "PATIENT", // Пациент
   DOCTOR = "DOCTOR",
+  REGIONAL_ADMIN = "REGIONAL_ADMIN", // Администратор области
+  CITY_ADMIN = "CITY_ADMIN", // Администратор города
+  DISTRICT_ADMIN = "DISTRICT_ADMIN", // Администратор района
 }
 
 export const userTypeLabels = {
@@ -12,10 +15,13 @@ export const userTypeLabels = {
   [UserType.DOCTOR]: "Доктор",
   [UserType.NURSE]: "Медсестра",
   [UserType.PATIENT]: "Пациент",
+  [UserType.REGIONAL_ADMIN]: "Администратор области",
+  [UserType.CITY_ADMIN]: "Администратор города",
+  [UserType.DISTRICT_ADMIN]: "Администратор района",
 };
 
-// Дополнительные поля для докторов
-export const doctorFields = {
+// Дополнительные поля для докторов и администраторов
+export const userTypeFields = {
   [UserType.DISTRICT_DOCTOR]: {
     department: "Отделение",
     subdivision: "Подразделение",
@@ -24,5 +30,15 @@ export const doctorFields = {
   [UserType.SPECIALIST_DOCTOR]: {
     specialization: "Специальность",
     subdivision: "Подразделение",
+  },
+  [UserType.REGIONAL_ADMIN]: {
+    region: "Область",
+  },
+  [UserType.CITY_ADMIN]: {
+    city: "Город",
+  },
+  [UserType.DISTRICT_ADMIN]: {
+    city: "Город",
+    district: "Район",
   },
 };

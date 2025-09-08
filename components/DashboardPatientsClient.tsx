@@ -12,33 +12,63 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { DashboardPatient } from "@/app/api/patients/dashboard/route";
+import CreatePatientModal from "@/components/CreatePatientModal";
+
+interface UserInfo {
+  id: string;
+  fullName: string;
+  region?: string;
+  city: string;
+  district?: string;
+  settlement?: string;
+  village?: string;
+  organization: string;
+}
 
 const DashboardPatientsClient = () => {
   const [patients, setPatients] = useState<DashboardPatient[]>([]);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchPatients = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await fetch("/api/patients/dashboard");
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Fetch patients
+        const patientsResponse = await fetch("/api/patients/dashboard");
+        if (!patientsResponse.ok) {
+          throw new Error(`HTTP error! status: ${patientsResponse.status}`);
         }
+        const patientsData: DashboardPatient[] = await patientsResponse.json();
+        setPatients(patientsData);
 
-        const data: DashboardPatient[] = await response.json();
-        setPatients(data);
+        // Fetch user info from dashboard endpoint
+        const userResponse = await fetch("/api/dashboard");
+        if (!userResponse.ok) {
+          throw new Error(`HTTP error! status: ${userResponse.status}`);
+        }
+        const userData = await userResponse.json();
+        setUserInfo({
+          id: userData.session.id,
+          fullName: userData.session.fullName,
+          region: userData.userInfo.region,
+          city: userData.userInfo.city,
+          district: userData.userInfo.district,
+          settlement: userData.userInfo.settlement,
+          village: userData.userInfo.village,
+          organization: userData.userInfo.organization,
+        });
       } catch (err) {
-        console.error("Error fetching patients:", err);
-        setError("Ошибка при загрузке пациентов");
+        console.error("Error fetching data:", err);
+        setError("Ошибка при загрузке данных");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchPatients();
+    fetchData();
   }, []);
 
   if (loading) {
@@ -52,23 +82,46 @@ const DashboardPatientsClient = () => {
     );
   }
 
-  if (error) {
+  if (error || !userInfo) {
     return (
       <div className="space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold">Список пациентов</h2>
         </div>
         <div className="border rounded-lg p-8 text-center text-red-500">
-          {error}
+          {error || "Ошибка при загрузке данных пользователя"}
         </div>
       </div>
     );
   }
 
+  const refreshPatients = async () => {
+    try {
+      const response = await fetch("/api/patients/dashboard");
+      if (response.ok) {
+        const data: DashboardPatient[] = await response.json();
+        setPatients(data);
+      }
+    } catch (err) {
+      console.error("Error refreshing patients:", err);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Список пациентов</h2>
+        <CreatePatientModal
+          creatorInfo={{
+            region: userInfo.region,
+            city: userInfo.city,
+            district: userInfo.district,
+            settlement: userInfo.settlement,
+            village: userInfo.village,
+            organization: userInfo.organization,
+          }}
+          onPatientCreated={refreshPatients}
+        />
       </div>
 
       <div className="border rounded-lg">

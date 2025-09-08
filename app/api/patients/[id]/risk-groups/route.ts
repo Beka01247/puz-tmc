@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { auth } from "@/auth";
 import { z } from "zod";
 import { isMedicalProvider } from "@/lib/utils/auth";
+import { verifyPatientAccess } from "@/lib/utils/patientVerification";
 
 const riskGroupSchema = z.object({
   name: z.string().min(1, "Название группы обязательно").max(255),
@@ -32,21 +33,8 @@ export async function POST(
       );
     }
 
-    const [patient] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(
-        and(
-          eq(users.id, resolvedParams.id),
-          eq(users.userType, "PATIENT"),
-          eq(users.organization, session.user.organization),
-          eq(users.city, session.user.city)
-        )
-      );
-
-    if (!patient) {
-      return NextResponse.json({ error: "Пациент не найден" }, { status: 404 });
-    }
+    // Verify patient access
+    await verifyPatientAccess(resolvedParams.id, session.user);
 
     const body = await request.json();
     const { name } = riskGroupSchema.parse(body);
