@@ -13,16 +13,25 @@ interface ChatWrapperProps {
     name: string;
     role: "DOCTOR" | "NURSE" | "PATIENT";
   };
+  joinChannelName?: string;
 }
 
-const ChatWrapper: FC<ChatWrapperProps> = ({ patientId, currentUser }) => {
+const ChatWrapper: FC<ChatWrapperProps> = ({
+  patientId,
+  currentUser,
+  joinChannelName,
+}) => {
   const client = new Ably.Realtime({ authUrl: "api" });
   const channelName = `patient-${patientId}`;
 
   return (
     <AblyProvider client={client}>
       <ChannelProvider channelName={channelName}>
-        <ChatBox patientId={patientId} currentUser={currentUser} />
+        <ChatBox
+          patientId={patientId}
+          currentUser={currentUser}
+          joinChannelName={joinChannelName}
+        />
       </ChannelProvider>
     </AblyProvider>
   );

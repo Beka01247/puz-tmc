@@ -10,6 +10,13 @@ interface VideoCallModalProps {
   currentUserId: string;
   isVideoCall: boolean;
   recipientName: string;
+  participantInfo?: Record<
+    string,
+    {
+      name: string;
+      userType: string;
+    }
+  >;
 }
 
 const VideoCallModal: React.FC<VideoCallModalProps> = ({
@@ -19,6 +26,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
   currentUserId,
   isVideoCall,
   recipientName,
+  participantInfo = {},
 }) => {
   const {
     callState,
@@ -36,6 +44,32 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
   const remoteVideoRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [isCallStarted, setIsCallStarted] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [currentUserInfo, setCurrentUserInfo] = useState<{
+    userType: string;
+    name: string;
+  } | null>(null);
+
+  // Fetch current user information when component mounts
+  useEffect(() => {
+    const fetchCurrentUserInfo = async () => {
+      try {
+        const response = await fetch("/api/dashboard");
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUserInfo({
+            userType: data.userInfo.userType,
+            name: data.userInfo.fullName,
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch user info:", error);
+      }
+    };
+
+    if (isOpen) {
+      fetchCurrentUserInfo();
+    }
+  }, [isOpen]);
 
   // Call duration timer
   useEffect(() => {
@@ -114,6 +148,87 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const getParticipantLabel = (uid: string) => {
+    const participant = participantInfo[uid];
+
+    // If we have explicit participant info, use it
+    if (participant) {
+      const userType = participant.userType;
+
+      // Map user types to appropriate labels
+      switch (userType) {
+        case "PATIENT":
+          return "Пациент";
+        case "DOCTOR":
+        case "DISTRICT_DOCTOR":
+        case "SPECIALIST_DOCTOR":
+          return "Лечащий врач";
+        case "REGIONAL_ADMIN":
+        case "CITY_ADMIN":
+        case "DISTRICT_ADMIN":
+          return "Врач консультант";
+        case "NURSE":
+          return "Медсестра";
+        default:
+          return (
+            participant.name ||
+            `Участник ${callState.remoteUsers.indexOf(uid) + 1}`
+          );
+      }
+    }
+
+    // Intelligent fallback based on current user and call context
+    if (currentUserInfo) {
+      const isCurrentUserPatient = currentUserInfo.userType === "PATIENT";
+      const isCurrentUserDoctor = [
+        "DOCTOR",
+        "DISTRICT_DOCTOR",
+        "SPECIALIST_DOCTOR",
+      ].includes(currentUserInfo.userType);
+      const isCurrentUserAdmin = [
+        "REGIONAL_ADMIN",
+        "CITY_ADMIN",
+        "DISTRICT_ADMIN",
+      ].includes(currentUserInfo.userType);
+
+      // If current user is a patient, others are likely medical staff
+      if (isCurrentUserPatient) {
+        // In most patient calls, there will be one primary doctor and possibly admins
+        if (callState.remoteUsers.indexOf(uid) === 0) {
+          return "Лечащий врач";
+        } else {
+          return "Врач консультант";
+        }
+      }
+
+      // If current user is a doctor/nurse, others could be patients or consulting doctors
+      if (isCurrentUserDoctor || currentUserInfo.userType === "NURSE") {
+        // Typically the first remote user would be the patient
+        if (callState.remoteUsers.indexOf(uid) === 0) {
+          return "Пациент";
+        } else {
+          return "Врач консультант";
+        }
+      }
+
+      // If current user is admin, others are likely doctors and patients
+      if (isCurrentUserAdmin) {
+        // Try to infer from the call context and recipientName
+        if (
+          recipientName.toLowerCase().includes("пациент") ||
+          callState.remoteUsers.indexOf(uid) === 0
+        ) {
+          return "Пациент";
+        } else {
+          return "Лечащий врач";
+        }
+      }
+    }
+
+    // Ultimate fallback
+    return `Участник ${callState.remoteUsers.indexOf(uid) + 1}`;
   };
 
   if (!isOpen) return null;
@@ -256,7 +371,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                               : "w-full"
                           }`}
                         >
-                          {callState.remoteUsers.map((uid, index) => (
+                          {callState.remoteUsers.map((uid) => (
                             <div
                               key={uid}
                               className={`bg-gray-800 rounded-lg overflow-hidden border-2 border-green-400 shadow-lg relative ${
@@ -282,7 +397,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                                 style={{ objectFit: "cover" }}
                               />
                               <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                Участник {index + 1}
+                                {getParticipantLabel(uid)}
                               </div>
                             </div>
                           ))}

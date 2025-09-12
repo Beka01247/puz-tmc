@@ -362,3 +362,19 @@ export const chatMessages = pgTable("chat_messages", {
   message: text("message").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
 });
+
+export const callNotifications = pgTable("call_notifications", {
+  id: uuid("id").notNull().primaryKey().defaultRandom(),
+  patientId: uuid("patient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  callerId: uuid("caller_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  channelName: varchar("channel_name", { length: 255 }).notNull(),
+  isVideoCall: boolean("is_video_call").notNull(),
+  isActive: boolean("is_active").default(true),
+  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  participants: text("participants"), // JSON array of participant IDs
+});

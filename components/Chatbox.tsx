@@ -31,9 +31,14 @@ interface ChatBoxProps {
     name: string;
     role: "DOCTOR" | "NURSE" | "PATIENT";
   };
+  joinChannelName?: string;
 }
 
-const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
+const ChatBox: FC<ChatBoxProps> = ({
+  patientId,
+  currentUser,
+  joinChannelName,
+}) => {
   const [messageText, setMessageText] = useState<string>("");
   const [receivedMessages, setMessages] = useState<Message[]>([]);
   const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
@@ -200,6 +205,72 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
     loadMessages();
   }, [loadMessages]);
 
+  // Auto-join call if joinChannelName is provided
+  useEffect(() => {
+    const autoJoinCall = async () => {
+      if (joinChannelName && !isVideoCallOpen) {
+        try {
+          // Fetch call notifications to get call details
+          const response = await fetch(
+            "/api/call-notifications?activeOnly=true"
+          );
+          if (response.ok) {
+            const notifications = await response.json();
+            const targetCall = notifications.find(
+              (n: { channelName: string; isActive: boolean }) =>
+                n.channelName === joinChannelName && n.isActive
+            );
+
+            if (targetCall) {
+              // Add a system message about joining the call
+              const joinMessage: Message = {
+                id: `join-${Date.now()}`,
+                message: `Присоединяетесь к ${targetCall.isVideoCall ? "видео" : "аудио"} звонку`,
+                sender: {
+                  id: "system",
+                  name: "Система",
+                  role: "SYSTEM",
+                },
+                createdAt: new Date().toISOString(),
+              };
+
+              setMessages((prevMessages) => [...prevMessages, joinMessage]);
+
+              // Set up the call state to join
+              setCurrentChannelName(joinChannelName);
+              setIsAudioCall(!targetCall.isVideoCall);
+              setIsVideoCallOpen(true);
+
+              // Update the active call state
+              setActiveCall({
+                channelName: joinChannelName,
+                isVideoCall: targetCall.isVideoCall,
+                participants: targetCall.participants
+                  ? JSON.parse(targetCall.participants)
+                  : [],
+                startedBy: targetCall.callerName,
+                startedAt: targetCall.startedAt,
+              });
+
+              // Broadcast that user joined the call
+              await channel.publish({
+                name: "participant-joined",
+                data: {
+                  userId: currentUser.id,
+                  channelName: joinChannelName,
+                },
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Error auto-joining call:", error);
+        }
+      }
+    };
+
+    autoJoinCall();
+  }, [joinChannelName, isVideoCallOpen, channel, currentUser.id]);
+
   const sendChatMessage = async (messageText: string) => {
     try {
       // Save to database first
@@ -250,6 +321,24 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
     const channelName = generateChannelName();
     setCurrentChannelName(channelName);
 
+    // Create call notification in database
+    try {
+      await fetch("/api/call-notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          channelName,
+          isVideoCall: false,
+          participants: [currentUser.id],
+        }),
+      });
+    } catch (error) {
+      console.error("Error creating call notification:", error);
+    }
+
     // Send call invitation via Ably
     await channel.publish({
       name: "call-invitation",
@@ -280,6 +369,24 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
   const handleVideoCall = async () => {
     const channelName = generateChannelName();
     setCurrentChannelName(channelName);
+
+    // Create call notification in database
+    try {
+      await fetch("/api/call-notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId,
+          channelName,
+          isVideoCall: true,
+          participants: [currentUser.id],
+        }),
+      });
+    } catch (error) {
+      console.error("Error creating call notification:", error);
+    }
 
     // Send call invitation via Ably
     await channel.publish({
@@ -327,6 +434,35 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
 
   const handleEndCall = async () => {
     if (currentChannelName) {
+      // Mark call as ended in database
+      try {
+        // Find and update the call notification
+        const notificationsResponse = await fetch("/api/call-notifications");
+        if (notificationsResponse.ok) {
+          const notifications = await notificationsResponse.json();
+          const activeCall = notifications.find(
+            (n: { channelName: string; isActive: boolean; id: string }) =>
+              n.channelName === currentChannelName && n.isActive
+          );
+
+          if (activeCall) {
+            await fetch("/api/call-notifications", {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                id: activeCall.id,
+                isActive: false,
+                endedAt: new Date().toISOString(),
+              }),
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Error ending call notification:", error);
+      }
+
       // Broadcast that user left the call
       await channel.publish({
         name: "participant-left",
@@ -477,6 +613,9 @@ const ChatBox: FC<ChatBoxProps> = ({ patientId, currentUser }) => {
             <h3 className="text-lg font-semibold text-gray-800">
               Чат с пациентом
             </h3>
+            {joinChannelName && (
+              <p className="text-sm text-blue-600">Присоединение к звонку...</p>
+            )}
           </div>
           <div className="flex gap-3 items-center">
             {/* Active Call Indicator */}

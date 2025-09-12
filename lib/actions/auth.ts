@@ -119,7 +119,7 @@ export async function signUp(params: AuthCredentials) {
       district: validatedData.district,
       settlement: validatedData.settlement,
       village: validatedData.village,
-      organization: validatedData.organization,
+      organization: validatedData.organization || "Администрация", // Provide default for admin users
       userType: dbUserType,
       doctorType: doctorType,
       gender: validatedData.gender,

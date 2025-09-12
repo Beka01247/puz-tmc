@@ -20,7 +20,7 @@ export const signUpSchema = z
     district: z.string().optional(),
     settlement: z.string().optional(),
     village: z.string().optional(),
-    organization: z.string().min(2, "Организация обязательна"),
+    organization: z.string().optional(), // Changed from required to optional
     userType: z.nativeEnum(UserType),
     gender: Gender,
     department: z.string().optional(),
@@ -67,6 +67,18 @@ export const signUpSchema = z
         if (data.userType === UserType.DISTRICT_ADMIN) {
           return data.district;
         }
+      }
+      // For non-admin users (doctors, nurses, patients), organization is required
+      if (
+        [
+          UserType.DISTRICT_DOCTOR,
+          UserType.SPECIALIST_DOCTOR,
+          UserType.NURSE,
+          UserType.PATIENT,
+          UserType.DOCTOR,
+        ].includes(data.userType)
+      ) {
+        return data.organization && data.organization.length >= 2;
       }
       return true;
     },

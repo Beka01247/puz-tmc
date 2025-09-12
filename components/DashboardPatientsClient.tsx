@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/table";
 import Link from "next/link";
 import { DashboardPatient } from "@/app/api/patients/dashboard/route";
-import CreatePatientModal from "@/components/CreatePatientModal";
+import CreatePatientModal from "./CreatePatientModal";
+import CallNotifications from "./CallNotifications";
 
 interface UserInfo {
   id: string;
@@ -123,6 +124,9 @@ const DashboardPatientsClient = () => {
           onPatientCreated={refreshPatients}
         />
       </div>
+
+      {/* Call Notifications */}
+      <CallNotifications currentUserId={userInfo.id} />
 
       <div className="border rounded-lg">
         <Table>

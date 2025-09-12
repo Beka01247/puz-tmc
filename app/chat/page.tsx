@@ -10,6 +10,7 @@ import Link from "next/link";
 interface ChatPageProps {
   searchParams: Promise<{
     patientId?: string;
+    join?: string;
   }>;
 }
 
@@ -22,6 +23,7 @@ const ChatPageContent = async ({ searchParams }: ChatPageProps) => {
 
   const params = await searchParams;
   let patientId = params.patientId;
+  const joinChannelName = params.join;
 
   // If no patientId is provided but user is a patient, use their own ID
   if (!patientId && session.user.userType === "PATIENT") {
@@ -87,6 +89,7 @@ const ChatPageContent = async ({ searchParams }: ChatPageProps) => {
           <ChatWrapper
             patientId={effectivePatientId}
             currentUser={currentUser}
+            joinChannelName={joinChannelName}
           />
         </div>
       </div>

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MedicalActivityCard } from "@/components/MedicalActivityCard";
 import { TreatmentCard } from "@/components/TreatmentCard";
 import CreatePatientModal from "@/components/CreatePatientModal";
+import CallNotifications from "@/components/CallNotifications";
 import {
   formatGender,
   formatUserType,
@@ -101,6 +102,9 @@ const DashboardClient = () => {
             />
           )}
         </div>
+
+        {/* Call Notifications - Show for all users */}
+        <CallNotifications currentUserId={session.id} />
 
         <Card className="bg-white text-black border-gray-600">
           <CardHeader>
