@@ -14,7 +14,7 @@ const SignUpPage = () => {
       defaultValues={{
         iin: "",
         fullName: "",
-        telephone: "",
+        telephone: "+7",
         email: "",
         password: "",
         confirmPassword: "",

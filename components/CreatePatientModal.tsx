@@ -65,13 +65,17 @@ const CreatePatientModal: React.FC<CreatePatientModalProps> = ({
       confirmPassword: "",
       gender: "МУЖСКОЙ",
       iin: "",
-      telephone: "",
+      telephone: "+7",
     },
   });
 
   const onSubmit = async (data: CreatePatientData) => {
     setIsSubmitting(true);
     try {
+      // Ensure telephone starts with +7
+      if (!data.telephone.startsWith("+7")) {
+        data.telephone = `+7${data.telephone.replace(/^\+?/, "")}`;
+      }
       const result = await createPatient(data, creatorInfo);
 
       if (result.success) {
