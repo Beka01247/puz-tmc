@@ -151,20 +151,69 @@ async function checkAndUpdateAlerts(
   }
 }
 
+// Helper function to check if user can enter measurements for a patient
+async function canUserEnterMeasurement(
+  currentUserId: string,
+  currentUserType: string,
+  targetPatientId: string
+): Promise<boolean> {
+  // Medical staff can enter measurements for any patient
+  const medicalStaffTypes = [
+    "NURSE",
+    "DISTRICT_DOCTOR",
+    "SPECIALIST_DOCTOR",
+    "DOCTOR",
+    "REGIONAL_ADMIN",
+    "CITY_ADMIN",
+    "DISTRICT_ADMIN",
+  ];
+
+  if (medicalStaffTypes.includes(currentUserType)) {
+    return true;
+  }
+
+  // Patients can only enter their own measurements
+  if (currentUserType === "PATIENT") {
+    return currentUserId === targetPatientId;
+  }
+
+  return false;
+}
+
 export const POST = async (req: Request) => {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { type, value1, value2 } = await req.json();
+  const { type, value1, value2, patientId } = await req.json();
+
+  // Determine the target patient ID
+  const targetPatientId = patientId || session.user.id;
+
+  // Check permissions
+  const hasPermission = await canUserEnterMeasurement(
+    session.user.id,
+    session.user.userType || "PATIENT",
+    targetPatientId
+  );
+
+  if (!hasPermission) {
+    return NextResponse.json(
+      {
+        error:
+          "Insufficient permissions to enter measurements for this patient",
+      },
+      { status: 403 }
+    );
+  }
 
   try {
-    // Insert the measurement
+    // Insert the measurement for the target patient
     const newMeasurement = await db
       .insert(measurements)
       .values({
-        userId: session.user.id,
+        userId: targetPatientId,
         type,
         value1,
         value2: value2 || null,
@@ -174,7 +223,7 @@ export const POST = async (req: Request) => {
     // Check for critical values and update alerts
     const measurementId = newMeasurement[0].id;
     await checkAndUpdateAlerts(
-      session.user.id,
+      targetPatientId,
       measurementId,
       type,
       value1,
@@ -191,10 +240,30 @@ export const POST = async (req: Request) => {
   }
 };
 
-export const GET = async () => {
+export const GET = async (req: Request) => {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const patientId = searchParams.get("patientId");
+  const targetPatientId = patientId || session.user.id;
+
+  // Check permissions to view measurements
+  const hasPermission = await canUserEnterMeasurement(
+    session.user.id,
+    session.user.userType || "PATIENT",
+    targetPatientId
+  );
+
+  if (!hasPermission) {
+    return NextResponse.json(
+      {
+        error: "Insufficient permissions to view measurements for this patient",
+      },
+      { status: 403 }
+    );
   }
 
   try {
@@ -207,7 +276,7 @@ export const GET = async () => {
         createdAt: measurements.createdAt,
       })
       .from(measurements)
-      .where(eq(measurements.userId, session.user.id))
+      .where(eq(measurements.userId, targetPatientId))
       .orderBy(desc(measurements.createdAt));
     return NextResponse.json(latestMeasurements, { status: 200 });
   } catch (error) {

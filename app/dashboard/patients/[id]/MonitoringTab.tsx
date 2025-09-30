@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import MeasurementModal from "@/components/MeasurementModal";
 import StatisticsModal from "@/components/StatisticsModal";
 import CriticalValuesModal from "@/components/CriticalValuesModal";
+import FileUploadModal from "@/components/FileUploadModal";
 import FilesViewModal from "@/components/FilesViewModal";
 import ECGViewModal from "@/components/ECGViewModal";
 import { monitoringItems } from "@/components/MonitoringPage";
@@ -40,7 +42,13 @@ export const MonitoringTab = ({
   userType,
   patientIIN,
 }: MonitoringTabProps) => {
+  const [selectedItem, setSelectedItem] = useState<
+    (typeof monitoringItems)[0] | null
+  >(null);
   const [selectedStatsItem, setSelectedStatsItem] = useState<
+    (typeof monitoringItems)[0] | null
+  >(null);
+  const [selectedFileUploadItem, setSelectedFileUploadItem] = useState<
     (typeof monitoringItems)[0] | null
   >(null);
   const [selectedFilesViewItem, setSelectedFilesViewItem] = useState<
@@ -50,6 +58,13 @@ export const MonitoringTab = ({
     (typeof monitoringItems)[0] | null
   >(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [currentMeasurements, setCurrentMeasurements] =
+    useState<Measurement[]>(measurements);
+
+  // Sync measurements when prop changes
+  useEffect(() => {
+    setCurrentMeasurements(measurements);
+  }, [measurements]);
 
   useEffect(() => {
     const fetchAlerts = async () => {
@@ -75,6 +90,66 @@ export const MonitoringTab = ({
     userType === "SPECIALIST_DOCTOR" ||
     userType === "NURSE";
 
+  const canAddMeasurements =
+    userType === "DOCTOR" ||
+    userType === "DISTRICT_DOCTOR" ||
+    userType === "SPECIALIST_DOCTOR" ||
+    userType === "NURSE";
+
+  const handleAddMeasurement = (item: (typeof monitoringItems)[0]) => {
+    if (item.id === "ecg") {
+      // ECG doesn't have an add functionality, it only views external data
+      return;
+    } else if (item.inputType === "file") {
+      setSelectedFileUploadItem(item);
+    } else {
+      setSelectedItem(item);
+    }
+  };
+
+  const handleModalSubmit = async (data: {
+    value1: string;
+    value2?: string;
+  }) => {
+    if (!selectedItem) return;
+
+    try {
+      const response = await fetch("/api/measurements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: selectedItem.id,
+          value1: data.value1,
+          value2: data.value2,
+          patientId: patientId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Не удалось сохранить измерение");
+      }
+
+      // Refresh measurements after successful POST
+      const updatedResponse = await fetch(
+        `/api/measurements?patientId=${patientId}`
+      );
+      if (updatedResponse.ok) {
+        const updatedData = await updatedResponse.json();
+        setCurrentMeasurements(updatedData);
+      }
+
+      setSelectedItem(null);
+    } catch (err) {
+      console.error("Error saving measurement:", err);
+      alert(err instanceof Error ? err.message : "Unknown error");
+    }
+  };
+
+  const handleFileUploadComplete = () => {
+    // Refresh measurements if needed
+    setSelectedFileUploadItem(null);
+  };
+
   const getActiveAlert = (itemId: string) => {
     return alerts.find(
       (alert) =>
@@ -92,7 +167,7 @@ export const MonitoringTab = ({
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {monitoringItems.map((item) => {
               // Find the latest measurement for this type by sorting by createdAt desc
-              const latestMeasurement = measurements
+              const latestMeasurement = currentMeasurements
                 .filter((m) => m.type === item.id)
                 .sort(
                   (a, b) =>
@@ -155,6 +230,15 @@ export const MonitoringTab = ({
                             }`}
                     </p>
                     <div className="flex space-x-2 mt-4">
+                      {canAddMeasurements && item.id !== "ecg" && (
+                        <Button
+                          className="hover:bg-blue-400 bg-blue-200"
+                          variant="outline"
+                          onClick={() => handleAddMeasurement(item)}
+                        >
+                          +
+                        </Button>
+                      )}
                       {item.inputType === "file" ? (
                         <Button
                           variant="outline"
@@ -218,7 +302,7 @@ export const MonitoringTab = ({
               | "double"
               | "text",
           }}
-          measurements={measurements
+          measurements={currentMeasurements
             .filter((m) => m.type === selectedStatsItem.id)
             .map((m) => ({
               ...m,
@@ -226,6 +310,26 @@ export const MonitoringTab = ({
             }))}
           patientId={patientId}
           onClose={() => setSelectedStatsItem(null)}
+        />
+      )}
+
+      {selectedItem && selectedItem.inputType !== "file" && (
+        <MeasurementModal
+          item={{
+            ...selectedItem,
+            inputType: selectedItem.inputType as "single" | "double" | "text",
+          }}
+          onClose={() => setSelectedItem(null)}
+          onSubmit={handleModalSubmit}
+        />
+      )}
+
+      {selectedFileUploadItem && (
+        <FileUploadModal
+          title={selectedFileUploadItem.title}
+          onClose={() => setSelectedFileUploadItem(null)}
+          onSubmit={handleFileUploadComplete}
+          patientId={patientId}
         />
       )}
 
