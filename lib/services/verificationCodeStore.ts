@@ -8,6 +8,7 @@ export interface VerificationCodeData {
 
 // Global variable to ensure persistence across Next.js API routes
 declare global {
+  // eslint-disable-next-line no-var
   var __verificationCodes: Map<string, VerificationCodeData> | undefined;
 }
 
@@ -47,6 +48,9 @@ class VerificationCodeStore {
 export const verificationCodeStore = new VerificationCodeStore();
 
 // Run cleanup every 5 minutes
-setInterval(() => {
-  verificationCodeStore.cleanup();
-}, 5 * 60 * 1000);
+setInterval(
+  () => {
+    verificationCodeStore.cleanup();
+  },
+  5 * 60 * 1000
+);
