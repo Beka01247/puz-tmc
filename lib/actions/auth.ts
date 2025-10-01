@@ -2,15 +2,19 @@
 
 import { z } from "zod";
 import { hash } from "bcryptjs";
-import { signUpSchema, createPatientSchema } from "../validations";
+import { signUpSchema, createPatientSchema, passwordResetRequestSchema, passwordResetVerifySchema } from "../validations";
 import { db } from "@/db/drizzle";
 import { users, userTypeEnum } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { UserType } from "@/constants/userTypes";
 import { signIn } from "@/auth";
+import { smsService } from "@/lib/services/smsService";
+import { verificationCodeStore } from "@/lib/services/verificationCodeStore";
 
 export type AuthCredentials = z.infer<typeof signUpSchema>;
 export type CreatePatientData = z.infer<typeof createPatientSchema>;
+export type PasswordResetRequestData = z.infer<typeof passwordResetRequestSchema>;
+export type PasswordResetVerifyData = z.infer<typeof passwordResetVerifySchema>;
 
 export const signInWithCredentials = async (
   params: Pick<AuthCredentials, "email" | "password">
@@ -264,6 +268,138 @@ export async function createPatient(
     return {
       success: false,
       error: "Произошла ошибка при создании пациента",
+    };
+  }
+}
+
+export async function requestPasswordReset(params: PasswordResetRequestData) {
+  try {
+    const validatedData = passwordResetRequestSchema.parse(params);
+
+    // Check if user exists with this phone number
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.telephone, validatedData.telephone));
+
+    if (!user) {
+      return {
+        success: false,
+        error: "Пользователь с таким номером телефона не найден",
+      };
+    }
+
+    // Generate verification code
+    const verificationCode = smsService.generateVerificationCode();
+    
+    // Store verification code with expiration (10 minutes)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    verificationCodeStore.set(validatedData.telephone, {
+      code: verificationCode,
+      expiresAt,
+    });
+
+    // Send SMS
+    const smsResult = await smsService.sendVerificationCode(validatedData.telephone, verificationCode);
+    
+    if (!smsResult.success) {
+      return {
+        success: false,
+        error: smsResult.error || "Ошибка отправки SMS",
+      };
+    }
+
+    return {
+      success: true,
+      message: "Код подтверждения отправлен на ваш номер телефона",
+    };
+
+  } catch (error) {
+    console.error("Password reset request error:", error);
+
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: "Ошибка валидации данных",
+      };
+    }
+
+    return {
+      success: false,
+      error: "Произошла ошибка при отправке запроса",
+    };
+  }
+}
+
+export async function verifyPasswordReset(params: PasswordResetVerifyData) {
+  try {
+    const validatedData = passwordResetVerifySchema.parse(params);
+
+    // Check if verification code exists and is valid
+    const storedCodeData = verificationCodeStore.get(validatedData.telephone);
+    
+    if (!storedCodeData) {
+      return {
+        success: false,
+        error: "Код подтверждения не найден или истек",
+      };
+    }
+
+    // Check if code has expired
+    if (new Date() > storedCodeData.expiresAt) {
+      verificationCodeStore.delete(validatedData.telephone);
+      return {
+        success: false,
+        error: "Код подтверждения истек",
+      };
+    }
+
+    // Check if verification code matches
+    if (storedCodeData.code !== validatedData.verificationCode) {
+      return {
+        success: false,
+        error: "Неверный код подтверждения",
+      };
+    }
+
+    // Hash the new password
+    const hashedPassword = await hash(validatedData.newPassword, 10);
+
+    // Update user's password
+    const updateResult = await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.telephone, validatedData.telephone))
+      .returning({ id: users.id });
+
+    if (updateResult.length === 0) {
+      return {
+        success: false,
+        error: "Пользователь с таким номером телефона не найден",
+      };
+    }
+
+    // Remove verification code after successful reset
+    verificationCodeStore.delete(validatedData.telephone);
+
+    return {
+      success: true,
+      message: "Пароль успешно изменен",
+    };
+
+  } catch (error) {
+    console.error("Password reset verify error:", error);
+
+    if (error instanceof z.ZodError) {
+      return {
+        success: false,
+        error: "Ошибка валидации данных",
+      };
+    }
+
+    return {
+      success: false,
+      error: "Произошла ошибка при сбросе пароля",
     };
   }
 }
