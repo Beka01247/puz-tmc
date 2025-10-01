@@ -122,3 +122,35 @@ export const createPatientSchema = z
     message: "Пароли не совпадают",
     path: ["confirmPassword"],
   });
+
+// Password reset schemas
+export const passwordResetRequestSchema = z.object({
+  telephone: z
+    .string()
+    .regex(
+      /^\+7\d{10}$/,
+      "Телефон должен начинаться с +7 и содержать 11 цифр"
+    ),
+});
+
+export const passwordResetVerifySchema = z
+  .object({
+    telephone: z
+      .string()
+      .regex(
+        /^\+7\d{10}$/,
+        "Телефон должен начинаться с +7 и содержать 11 цифр"
+      ),
+    verificationCode: z
+      .string()
+      .length(6, "Код подтверждения должен содержать 6 цифр")
+      .regex(/^\d+$/, "Код подтверждения должен содержать только цифры"),
+    newPassword: z.string().min(8, "Пароль должен содержать минимум 8 символов"),
+    confirmPassword: z
+      .string()
+      .min(8, "Подтверждение пароля должно содержать минимум 8 символов"),
+  })
+  .refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Пароли не совпадают",
+    path: ["confirmPassword"],
+  });
