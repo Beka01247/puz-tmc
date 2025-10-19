@@ -132,7 +132,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
           remoteVideoTrack.play(mainSpeakerRef.current);
         } catch (error) {
           // Ignore abort errors during switching
-          if (error instanceof Error && !error.message.includes('interrupted')) {
+          if (error instanceof Error && !error.message.includes("interrupted")) {
             console.error("Error playing main speaker video:", error);
           }
         }
@@ -279,7 +279,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
               {isVideoCall ? "Видео звонок" : "Аудио звонок"}
               {callState.isConnected && (
                 <span className="ml-2 text-sm font-normal text-gray-600">
-                  ({callState.remoteUsers.length + 1} участник{callState.remoteUsers.length === 0 ? '' : callState.remoteUsers.length === 1 ? 'а' : 'ов'})
+                  ({callState.remoteUsers.length + 1} участник{callState.remoteUsers.length === 0 ? "" : callState.remoteUsers.length === 1 ? "а" : "ов"})
                 </span>
               )}
             </h3>
@@ -387,8 +387,8 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                     >
                       <div className={`w-32 h-24 bg-gray-700 rounded-lg overflow-hidden border-2 shadow-lg relative transition-all cursor-pointer ${
                         activeSpeakerUid === uid 
-                          ? 'border-green-500 ring-2 ring-green-400' 
-                          : 'border-gray-600 hover:border-green-500'
+                          ? "border-green-500 ring-2 ring-green-400" 
+                          : "border-gray-600 hover:border-green-500"
                       }`}>
                         <div
                           ref={(el) => {
@@ -596,7 +596,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                 </svg>
                 {/* Camera type indicator */}
                 <div className="absolute -top-1 -right-1 bg-white text-blue-600 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-sm">
-                  {callState.isFrontCamera ? 'П' : 'З'}
+                  {callState.isFrontCamera ? "П" : "З"}
                 </div>
               </button>
             )}
