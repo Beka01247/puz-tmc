@@ -248,7 +248,7 @@ export const PatientDetailsClient = ({
       session={{ fullName: userName, id: userId }}
     >
       <TooltipProvider>
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6 p-2 md:p-0">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between mb-2">
@@ -256,7 +256,7 @@ export const PatientDetailsClient = ({
                   variant="outline"
                   onClick={handleGoBack}
                   size="sm"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs md:text-sm"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -274,93 +274,108 @@ export const PatientDetailsClient = ({
                   Назад
                 </Button>
               </div>
-              <CardTitle className="text-center">
+              <CardTitle className="text-center text-lg md:text-xl">
                 Информация о пациенте
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-2 items-center pl-24">
-                <div className="col-span-1 flex items-center gap-2">
-                  <strong>ФИО:</strong> {initialData.patient.fullName}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-2 md:pl-24">
+                <div className="col-span-1 md:col-span-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong>ФИО:</strong> 
+                    <span className="break-words">{initialData.patient.fullName}</span>
+                  </div>
                   {isProvider && (
                     <Button
                       size="sm"
-                      className="bg-yellow-200 hover:bg-yellow-400 text-yellow-900 border-black font-medium"
+                      className="bg-yellow-200 hover:bg-yellow-400 text-yellow-900 border-black font-medium w-fit"
                       asChild
                     >
                       <Link href={`/chat?patientId=${patientId}`}>Чат</Link>
                     </Button>
                   )}
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-1 md:col-span-1">
                   <strong>Дата рождения:</strong>{" "}
-                  {getBirthDateFromIIN(
-                    initialData.patient.iin
-                  )?.toLocaleDateString("ru-RU") || "Не указана"}
+                  <span className="break-words">
+                    {getBirthDateFromIIN(
+                      initialData.patient.iin
+                    )?.toLocaleDateString("ru-RU") || "Не указана"}
+                  </span>
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-1 md:col-span-1">
                   <strong>Возраст:</strong>{" "}
                   {calculateAge(initialData.patient.iin)}
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-1 md:col-span-1">
                   <strong>Пол:</strong>{" "}
                   {formatGender(initialData.patient.gender)}
                 </div>
-                <div className="col-span-1">
-                  <strong>ИИН:</strong> {initialData.patient.iin}
+                <div className="col-span-1 md:col-span-1">
+                  <strong>ИИН:</strong> 
+                  <span className="break-all ml-1">{initialData.patient.iin}</span>
                 </div>
-                <div className="col-span-1">
-                  <strong>Email:</strong> {initialData.patient.email}
+                <div className="col-span-1 md:col-span-1">
+                  <strong>Email:</strong> 
+                  <span className="break-all ml-1">{initialData.patient.email}</span>
                 </div>
-                <div className="col-span-1">
-                  <strong>Телефон:</strong> {initialData.patient.telephone}
+                <div className="col-span-1 md:col-span-1">
+                  <strong>Телефон:</strong> 
+                  <span className="break-all ml-1">{initialData.patient.telephone}</span>
                 </div>
-                <div className="col-span-1">
-                  <strong>Город:</strong> {initialData.patient.city}
+                <div className="col-span-1 md:col-span-1">
+                  <strong>Город:</strong> 
+                  <span className="break-words ml-1">{initialData.patient.city}</span>
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-1 md:col-span-2">
                   <strong>Организация:</strong>{" "}
-                  {initialData.patient.organization}
+                  <span className="break-words">
+                    {initialData.patient.organization}
+                  </span>
                 </div>
 
-                <div className="col-span-2 flex items-center gap-2">
-                  <strong>Группы:</strong>
-                  {initialData.patient.riskGroups?.length ? (
-                    <span>
-                      {initialData.patient.riskGroups
-                        .map((rg) => rg.name)
-                        .join(", ")}
-                    </span>
-                  ) : (
-                    <span className="text-gray-500">Нет групп риска</span>
-                  )}
+                <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong>Группы:</strong>
+                    {initialData.patient.riskGroups?.length ? (
+                      <span className="break-words">
+                        {initialData.patient.riskGroups
+                          .map((rg) => rg.name)
+                          .join(", ")}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Нет групп риска</span>
+                    )}
+                  </div>
                   {isProvider && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="ml-2"
+                      className="w-fit"
                       onClick={() => setIsRiskGroupModalOpen(true)}
                     >
                       Изменить
                     </Button>
                   )}
                 </div>
-                <div className="col-span-2 flex items-center gap-2">
-                  <strong>Диагнозы:</strong>
-                  {initialData.patient.diagnoses?.length ? (
-                    <span>
-                      {initialData.patient.diagnoses
-                        .map((d) => d.description)
-                        .join(", ")}
-                    </span>
-                  ) : (
-                    <span className="text-gray-500">Нет диагнозов</span>
-                  )}
+                <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong>Диагнозы:</strong>
+                    {initialData.patient.diagnoses?.length ? (
+                      <span className="break-words">
+                        {initialData.patient.diagnoses
+                          .map((d) => d.description)
+                          .join(", ")}
+                      </span>
+                    ) : (
+                      <span className="text-gray-500">Нет диагнозов</span>
+                    )}
+                  </div>
                   {isProvider && (
                     <Button
                       variant="outline"
                       size="sm"
-                      className="ml-2"
+                      className="w-fit"
                       onClick={() => setIsDiagnosisModalOpen(true)}
                     >
                       Изменить
@@ -371,7 +386,7 @@ export const PatientDetailsClient = ({
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             {isFemale && (
               <>
                 <PregnancyCard
@@ -391,17 +406,18 @@ export const PatientDetailsClient = ({
                       <Card>
                         <CardHeader>
                           <CardTitle className="flex items-center justify-between">
-                            <span>Регистр женщин фертильного возраста</span>
+                            <span className="text-sm md:text-base">Регистр женщин фертильного возраста</span>
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="py-4">
-                            <p className="text-muted-foreground mb-4 text-center">
+                            <p className="text-muted-foreground mb-4 text-center text-sm">
                               Пациент не состоит в регистре ЖФВ
                             </p>
                             <div className="flex justify-center">
                               {/* Direct button for adding to register */}
                               <Button
+                                size="sm"
                                 onClick={async () => {
                                   try {
                                     const response = await fetch(
@@ -442,7 +458,7 @@ export const PatientDetailsClient = ({
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <ScreeningCard
               patientId={patientId}
               screenings={initialData.screenings}
@@ -459,11 +475,13 @@ export const PatientDetailsClient = ({
             />
           </div>
 
-          <div className="flex justify-center">
-            <div className="flex flex-wrap gap-4">
+          <div className="flex justify-center px-4">
+            <div className="flex flex-wrap gap-2 md:gap-4 justify-center">
               <Button
                 variant={selectedTab === "monitoring" ? "default" : "outline"}
                 onClick={() => setSelectedTab("monitoring")}
+                size="sm"
+                className="text-xs md:text-sm"
               >
                 Мониторинг
               </Button>
@@ -472,12 +490,16 @@ export const PatientDetailsClient = ({
                   selectedTab === "consultations" ? "default" : "outline"
                 }
                 onClick={() => setSelectedTab("consultations")}
+                size="sm"
+                className="text-xs md:text-sm"
               >
                 Приемы
               </Button>
               <Button
                 variant={selectedTab === "treatments" ? "default" : "outline"}
                 onClick={() => setSelectedTab("treatments")}
+                size="sm"
+                className="text-xs md:text-sm"
               >
                 Лечения
               </Button>
@@ -486,12 +508,16 @@ export const PatientDetailsClient = ({
                   selectedTab === "recommendations" ? "default" : "outline"
                 }
                 onClick={() => setSelectedTab("recommendations")}
+                size="sm"
+                className="text-xs md:text-sm"
               >
                 Рекомендации
               </Button>
               <Button
                 variant={selectedTab === "files" ? "default" : "outline"}
                 onClick={() => setSelectedTab("files")}
+                size="sm"
+                className="text-xs md:text-sm"
               >
                 Файлы
               </Button>

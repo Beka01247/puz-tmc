@@ -32,6 +32,8 @@ export interface CallState {
   isRecording: boolean;
   conversionProgress: number;
   isConverting: boolean;
+  hasMultipleCameras: boolean;
+  isFrontCamera: boolean;
 }
 
 export const useAgoraCall = () => {
@@ -48,6 +50,8 @@ export const useAgoraCall = () => {
     isRecording: false,
     conversionProgress: 0,
     isConverting: false,
+    hasMultipleCameras: false,
+    isFrontCamera: true,
   });
 
   // Recording state
@@ -266,6 +270,110 @@ export const useAgoraCall = () => {
     }
   };
 
+  const checkCameraAvailability = async () => {
+    try {
+      const agora = await initAgoraRTC();
+      if (!agora) return false;
+
+      // Try using native MediaDevices API first as fallback
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        const hasMultiple = videoDevices.length > 1;
+        
+        setCallState(prev => ({
+          ...prev,
+          hasMultipleCameras: hasMultiple
+        }));
+        
+        return hasMultiple;
+      } catch (nativeError) {
+        const cameras = await agora.getCameras();
+        const hasMultiple = cameras.length > 1;
+        
+        setCallState(prev => ({
+          ...prev,
+          hasMultipleCameras: hasMultiple
+        }));
+        
+        return hasMultiple;
+      }
+    } catch (error) {
+      // Default to false - assume single camera
+      setCallState(prev => ({
+        ...prev,
+        hasMultipleCameras: false
+      }));
+      return false;
+    }
+  };
+
+  const switchCamera = async () => {
+    if (!localVideoTrack || !callState.hasMultipleCameras) {
+      return;
+    }
+
+    try {
+      const agora = await initAgoraRTC();
+      if (!agora) return;
+
+      // Get current device ID from the track's MediaStreamTrack
+      const currentTrack = localVideoTrack.getMediaStreamTrack();
+      const currentSettings = currentTrack.getSettings();
+      const currentDeviceId = currentSettings.deviceId;
+
+      // Get all available cameras
+      let cameras: any[] = [];
+      
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          cameras = devices.filter(device => device.kind === 'videoinput');
+        }
+      } catch (nativeError) {
+        try {
+          cameras = await agora.getCameras();
+        } catch (agoraError) {
+          return;
+        }
+      }
+
+      if (cameras.length < 2) {
+        return;
+      }
+
+      // Find the index of the current camera
+      const currentIndex = cameras.findIndex(camera => 
+        camera.deviceId === currentDeviceId
+      );
+
+      // Calculate the next camera index (cycle through all cameras)
+      const nextIndex = (currentIndex + 1) % cameras.length;
+      const nextCamera = cameras[nextIndex];
+
+      if (!nextCamera || !nextCamera.deviceId) {
+        return;
+      }
+
+      // Use Agora's setDevice method to switch the camera
+      await localVideoTrack.setDevice(nextCamera.deviceId);
+      
+      // Detect if it's likely a front camera based on label
+      const isFrontCamera = nextCamera.label?.toLowerCase().includes('front') || 
+                           nextCamera.label?.toLowerCase().includes('user') ||
+                           nextCamera.label?.toLowerCase().includes('передняя');
+      
+      // Update state
+      setCallState(prev => ({
+        ...prev,
+        isFrontCamera: isFrontCamera
+      }));
+    } catch (error) {
+      console.error("Error switching camera:", error);
+      alert("Не удалось переключить камеру: " + (error instanceof Error ? error.message : "Неизвестная ошибка"));
+    }
+  };
+
   const startCall = async (
     channelName: string,
     uid: number,
@@ -314,6 +422,9 @@ export const useAgoraCall = () => {
           setLocalVideoTrack(videoTrack);
           await client.publish(videoTrack);
           console.log("Published video track");
+          
+          console.log("Checking for multiple cameras...");
+          await checkCameraAvailability();
         } catch (videoError) {
           console.warn("Failed to create video track:", videoError);
           console.log("Continuing with audio-only call");
@@ -374,6 +485,8 @@ export const useAgoraCall = () => {
         isRecording: false,
         conversionProgress: 0,
         isConverting: false,
+        hasMultipleCameras: false,
+        isFrontCamera: true,
       });
 
       // Clear remote tracks
@@ -687,6 +800,7 @@ export const useAgoraCall = () => {
     endCall,
     toggleAudio,
     toggleVideo,
+    switchCamera,
     getRemoteVideoTrack,
     startRecording,
     stopRecording,
