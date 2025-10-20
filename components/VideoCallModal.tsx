@@ -138,8 +138,7 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
         }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSpeakerUid]); // Only depend on activeSpeakerUid, not getRemoteVideoTrack
+  }, [activeSpeakerUid, callState.remoteUsers, getRemoteVideoTrack]); // Re-run when remote users update (tracks published)
 
   const handleStartCall = async () => {
     try {
