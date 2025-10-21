@@ -12,6 +12,7 @@ const StatisticsPage = async () => {
 
   const userType = session.user.userType as UserType;
 
+  // Only allow access to non-patient users
   if (userType === UserType.PATIENT) {
     redirect("/");
   }

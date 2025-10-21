@@ -39,6 +39,20 @@ interface MonitoringStatistics {
   height: Record<string, number>;
 }
 
+interface MeasurementStatistics {
+  bloodPressure: Record<string, number>;
+  pulse: Record<string, number>;
+  temperature: Record<string, number>;
+  glucose: Record<string, number>;
+  oximeter: Record<string, number>;
+  spirometer: Record<string, number>;
+  cholesterol: Record<string, number>;
+  hemoglobin: Record<string, number>;
+  triglycerides: Record<string, number>;
+  weight: Record<string, number>;
+  height: Record<string, number>;
+}
+
 interface UserDetail {
   id: string;
   fullName: string;
@@ -70,6 +84,9 @@ export const StatisticsClient = ({
   const [statistics, setStatistics] = useState<MonitoringStatistics | null>(
     null
   );
+  const [measurementStatistics, setMeasurementStatistics] =
+    useState<MeasurementStatistics | null>(null);
+  const [showMeasurements, setShowMeasurements] = useState(false);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalUsers, setModalUsers] = useState<UserDetail[]>([]);
@@ -95,13 +112,30 @@ export const StatisticsClient = ({
       params.append("organization", organization);
       params.append("city", city);
 
-      const response = await fetch(`/api/statistics?${params.toString()}`);
-      const data = await response.json();
+      // Fetch both user statistics and measurement statistics
+      const [userResponse, measurementResponse] = await Promise.all([
+        fetch(`/api/statistics?${params.toString()}`),
+        fetch(`/api/statistics/measurements?${params.toString()}`),
+      ]);
 
-      if (response.ok) {
-        setStatistics(data.statistics);
+      const [userData, measurementData] = await Promise.all([
+        userResponse.json(),
+        measurementResponse.json(),
+      ]);
+
+      if (userResponse.ok) {
+        setStatistics(userData.statistics);
       } else {
-        console.error("Error fetching statistics:", data.error);
+        console.error("Error fetching user statistics:", userData.error);
+      }
+
+      if (measurementResponse.ok) {
+        setMeasurementStatistics(measurementData.statistics);
+      } else {
+        console.error(
+          "Error fetching measurement statistics:",
+          measurementData.error
+        );
       }
     } catch (error) {
       console.error("Error fetching statistics:", error);
@@ -170,7 +204,8 @@ export const StatisticsClient = ({
   };
 
   const renderStatisticsTable = () => {
-    if (!statistics) return null;
+    const currentStats = showMeasurements ? measurementStatistics : statistics;
+    if (!currentStats) return null;
 
     const groups = ["ПУЗ", "ДН", "Беременные", "ЖВФ", "Все"];
 
@@ -211,10 +246,13 @@ export const StatisticsClient = ({
                   <TableCell
                     key={group}
                     className="text-center cursor-pointer hover:bg-muted transition-colors"
-                    onClick={() => handleCellClick(measurement.apiKey, group)}
+                    onClick={() =>
+                      !showMeasurements &&
+                      handleCellClick(measurement.apiKey, group)
+                    }
                   >
                     <span className="text-black hover:text-gray-700">
-                      {statistics[
+                      {currentStats[
                         measurement.key as keyof MonitoringStatistics
                       ][group] || 0}
                     </span>
@@ -301,21 +339,74 @@ export const StatisticsClient = ({
             </Button>
           </div>
 
-          {statistics && (
+          {(statistics || measurementStatistics) && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">
-                Количество людей по группам, проводящих мониторинг
-              </h3>
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-lg font-semibold">
+                    {showMeasurements
+                      ? "Количество измерений по группам"
+                      : "Количество людей по группам, проводящих мониторинг"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {showMeasurements
+                      ? "Общее количество выполненных измерений по каждому типу"
+                      : "Уникальные пользователи, выполнившие мониторинг"}
+                  </p>
+                </div>
+                <div className="inline-flex items-center bg-muted rounded-lg p-1 gap-1">
+                  <button
+                    className={cn(
+                      "px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center gap-2",
+                      !showMeasurements
+                        ? "bg-background text-foreground shadow-sm border border-border"
+                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                    )}
+                    onClick={() => setShowMeasurements(false)}
+                  >
+                    <span className="text-lg">👥</span>
+                    Пользователи
+                  </button>
+                  <button
+                    className={cn(
+                      "px-4 py-2 text-sm font-medium rounded-md transition-all duration-200 flex items-center gap-2",
+                      showMeasurements
+                        ? "bg-background text-foreground shadow-sm border border-border"
+                        : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                    )}
+                    onClick={() => setShowMeasurements(true)}
+                  >
+                    <span className="text-lg">📊</span>
+                    Измерения
+                  </button>
+                </div>
+              </div>
               {renderStatisticsTable()}
             </div>
           )}
 
-          {!statistics && (
+          {!statistics && !measurementStatistics && (
             <div className="text-center text-muted-foreground py-8">
               Выберите период и нажмите &quot;Поиск&quot; для получения
               статистики
             </div>
           )}
+
+          {(statistics || measurementStatistics) &&
+            showMeasurements &&
+            !measurementStatistics && (
+              <div className="text-center text-muted-foreground py-8">
+                Данные об измерениях пока загружаются...
+              </div>
+            )}
+
+          {(statistics || measurementStatistics) &&
+            !showMeasurements &&
+            !statistics && (
+              <div className="text-center text-muted-foreground py-8">
+                Данные о пользователях пока загружаются...
+              </div>
+            )}
         </div>
       </div>
 
