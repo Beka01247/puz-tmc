@@ -132,7 +132,10 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
           remoteVideoTrack.play(mainSpeakerRef.current);
         } catch (error) {
           // Ignore abort errors during switching
-          if (error instanceof Error && !error.message.includes("interrupted")) {
+          if (
+            error instanceof Error &&
+            !error.message.includes("interrupted")
+          ) {
             console.error("Error playing main speaker video:", error);
           }
         }
@@ -278,7 +281,13 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
               {isVideoCall ? "Видео звонок" : "Аудио звонок"}
               {callState.isConnected && (
                 <span className="ml-2 text-sm font-normal text-gray-600">
-                  ({callState.remoteUsers.length + 1} участник{callState.remoteUsers.length === 0 ? "" : callState.remoteUsers.length === 1 ? "а" : "ов"})
+                  ({callState.remoteUsers.length + 1} участник
+                  {callState.remoteUsers.length === 0
+                    ? ""
+                    : callState.remoteUsers.length === 1
+                      ? "а"
+                      : "ов"}
+                  )
                 </span>
               )}
             </h3>
@@ -307,6 +316,57 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
             </svg>
           </button>
         </div>
+
+        {/* Echo Prevention Tip Banner - Show when call is active */}
+        {isCallStarted &&
+          callState.isConnected &&
+          callState.remoteUsers.length > 0 && (
+            <div className="bg-blue-50 border-b border-blue-200 px-4 py-2 flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <svg
+                  className="w-5 h-5 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-blue-800">
+                  <span className="font-medium">Совет:</span> Используйте
+                  наушники для лучшего качества звука и предотвращения эха
+                </p>
+              </div>
+              <button
+                onClick={(e) => {
+                  const banner = e.currentTarget.parentElement;
+                  if (banner) banner.style.display = "none";
+                }}
+                className="flex-shrink-0 text-blue-400 hover:text-blue-600"
+                aria-label="Закрыть"
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+          )}
 
         {/* Video Area */}
         <div className="flex-1 bg-gray-900 relative">
@@ -365,8 +425,16 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                         />
                         {!localVideoTrack && (
                           <div className="absolute inset-0 flex items-center justify-center text-white text-xs bg-gray-700">
-                            <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                            <svg
+                              className="w-8 h-8"
+                              fill="currentColor"
+                              viewBox="0 0 20 20"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                clipRule="evenodd"
+                              />
                             </svg>
                           </div>
                         )}
@@ -379,23 +447,27 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
 
                   {/* Remote participants thumbnails */}
                   {callState.remoteUsers.map((uid) => (
-                    <div 
-                      key={uid} 
+                    <div
+                      key={uid}
                       className="relative flex-shrink-0 group"
                       onClick={() => handleSelectSpeaker(uid)}
                     >
-                      <div className={`w-32 h-24 bg-gray-700 rounded-lg overflow-hidden border-2 shadow-lg relative transition-all cursor-pointer ${
-                        activeSpeakerUid === uid 
-                          ? "border-green-500 ring-2 ring-green-400" 
-                          : "border-gray-600 hover:border-green-500"
-                      }`}>
+                      <div
+                        className={`w-32 h-24 bg-gray-700 rounded-lg overflow-hidden border-2 shadow-lg relative transition-all cursor-pointer ${
+                          activeSpeakerUid === uid
+                            ? "border-green-500 ring-2 ring-green-400"
+                            : "border-gray-600 hover:border-green-500"
+                        }`}
+                      >
                         <div
                           ref={(el) => {
                             if (el) {
-                              const existingEl = remoteVideoRefs.current.get(uid);
+                              const existingEl =
+                                remoteVideoRefs.current.get(uid);
                               if (!existingEl || existingEl !== el) {
                                 remoteVideoRefs.current.set(uid, el);
-                                const remoteVideoTrack = getRemoteVideoTrack(uid);
+                                const remoteVideoTrack =
+                                  getRemoteVideoTrack(uid);
                                 if (remoteVideoTrack) {
                                   setTimeout(() => {
                                     remoteVideoTrack.play(el);
@@ -438,8 +510,16 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
                     <div className="flex items-center justify-center h-full text-white">
                       <div className="text-center">
                         <div className="w-32 h-32 mx-auto bg-gray-600 rounded-full flex items-center justify-center mb-4">
-                          <svg className="w-16 h-16" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                          <svg
+                            className="w-16 h-16"
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                         </div>
                         <p className="text-xl">Ожидание подключения...</p>
@@ -574,31 +654,33 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
             )}
 
             {/* Switch Camera (only show when multiple cameras available) */}
-            {isVideoCall && callState.hasMultipleCameras && callState.isVideoEnabled && (
-              <button
-                onClick={switchCamera}
-                className="p-2 sm:p-3 rounded-full bg-blue-500 hover:bg-blue-600 text-white transition-colors relative"
-                title="Переключить камеру"
-              >
-                <svg
-                  className="w-5 h-5 sm:w-6 sm:h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+            {isVideoCall &&
+              callState.hasMultipleCameras &&
+              callState.isVideoEnabled && (
+                <button
+                  onClick={switchCamera}
+                  className="p-2 sm:p-3 rounded-full bg-blue-500 hover:bg-blue-600 text-white transition-colors relative"
+                  title="Переключить камеру"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                {/* Camera type indicator */}
-                <div className="absolute -top-1 -right-1 bg-white text-blue-600 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-sm">
-                  {callState.isFrontCamera ? "П" : "З"}
-                </div>
-              </button>
-            )}
+                  <svg
+                    className="w-5 h-5 sm:w-6 sm:h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  {/* Camera type indicator */}
+                  <div className="absolute -top-1 -right-1 bg-white text-blue-600 text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-sm">
+                    {callState.isFrontCamera ? "П" : "З"}
+                  </div>
+                </button>
+              )}
 
             {/* Recording Buttons */}
             <div className="flex space-x-1 sm:space-x-2">

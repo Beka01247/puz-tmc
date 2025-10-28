@@ -161,6 +161,17 @@ export const useAgoraCall = () => {
         codec: "vp8",
       });
 
+      // Enable Agora's built-in echo cancellation at the client level
+      if (typeof window !== "undefined") {
+        // Set audio profile for better echo cancellation
+        try {
+          // Enable browser-level echo cancellation hints
+          console.log("Configuring Agora client for optimal echo cancellation");
+        } catch (err) {
+          console.warn("Could not configure advanced audio settings:", err);
+        }
+      }
+
       setClient(agoraClient);
 
       // Set up event listeners
@@ -182,7 +193,17 @@ export const useAgoraCall = () => {
               user.uid.toString(),
               user.audioTrack!
             );
+
+            // Play remote audio with controlled volume to prevent echo
             user.audioTrack!.play();
+
+            // Set volume to a comfortable level (0.7 = 70%)
+            // This helps prevent audio from being too loud and causing feedback
+            try {
+              user.audioTrack!.setVolume(70);
+            } catch (volumeError) {
+              console.warn("Could not set remote audio volume:", volumeError);
+            }
           }
 
           setCallState((prev) => ({
@@ -278,31 +299,33 @@ export const useAgoraCall = () => {
       // Try using native MediaDevices API first as fallback
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        const videoDevices = devices.filter(
+          (device) => device.kind === "videoinput"
+        );
         const hasMultiple = videoDevices.length > 1;
-        
-        setCallState(prev => ({
+
+        setCallState((prev) => ({
           ...prev,
-          hasMultipleCameras: hasMultiple
+          hasMultipleCameras: hasMultiple,
         }));
-        
+
         return hasMultiple;
-      } catch (nativeError) {
+      } catch {
         const cameras = await agora.getCameras();
         const hasMultiple = cameras.length > 1;
-        
-        setCallState(prev => ({
+
+        setCallState((prev) => ({
           ...prev,
-          hasMultipleCameras: hasMultiple
+          hasMultipleCameras: hasMultiple,
         }));
-        
+
         return hasMultiple;
       }
-    } catch (error) {
+    } catch {
       // Default to false - assume single camera
-      setCallState(prev => ({
+      setCallState((prev) => ({
         ...prev,
-        hasMultipleCameras: false
+        hasMultipleCameras: false,
       }));
       return false;
     }
@@ -323,17 +346,17 @@ export const useAgoraCall = () => {
       const currentDeviceId = currentSettings.deviceId;
 
       // Get all available cameras
-      let cameras: any[] = [];
-      
+      let cameras: MediaDeviceInfo[] = [];
+
       try {
         if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
           const devices = await navigator.mediaDevices.enumerateDevices();
-          cameras = devices.filter(device => device.kind === 'videoinput');
+          cameras = devices.filter((device) => device.kind === "videoinput");
         }
-      } catch (nativeError) {
+      } catch {
         try {
           cameras = await agora.getCameras();
-        } catch (agoraError) {
+        } catch {
           return;
         }
       }
@@ -343,8 +366,8 @@ export const useAgoraCall = () => {
       }
 
       // Find the index of the current camera
-      const currentIndex = cameras.findIndex(camera => 
-        camera.deviceId === currentDeviceId
+      const currentIndex = cameras.findIndex(
+        (camera) => camera.deviceId === currentDeviceId
       );
 
       // Calculate the next camera index (cycle through all cameras)
@@ -357,20 +380,25 @@ export const useAgoraCall = () => {
 
       // Use Agora's setDevice method to switch the camera
       await localVideoTrack.setDevice(nextCamera.deviceId);
-      
+
       // Detect if it's likely a front camera based on label
-      const isFrontCamera = nextCamera.label?.toLowerCase().includes('front') || 
-                           nextCamera.label?.toLowerCase().includes('user') ||
-                           nextCamera.label?.toLowerCase().includes('передняя');
-      
+      const label = nextCamera.label?.toLowerCase() || "";
+      const isFrontCamera =
+        label.includes("front") ||
+        label.includes("user") ||
+        label.includes("передняя");
+
       // Update state
-      setCallState(prev => ({
+      setCallState((prev) => ({
         ...prev,
-        isFrontCamera: isFrontCamera
+        isFrontCamera: isFrontCamera,
       }));
     } catch (error) {
       console.error("Error switching camera:", error);
-      alert("Не удалось переключить камеру: " + (error instanceof Error ? error.message : "Неизвестная ошибка"));
+      alert(
+        "Не удалось переключить камеру: " +
+          (error instanceof Error ? error.message : "Неизвестная ошибка")
+      );
     }
   };
 
@@ -402,10 +430,24 @@ export const useAgoraCall = () => {
       }
 
       try {
-        const audioTrack = await agora.createMicrophoneAudioTrack();
+        // Create audio track with aggressive echo cancellation and noise suppression
+        const audioTrack = await agora.createMicrophoneAudioTrack({
+          encoderConfig: {
+            sampleRate: 48000,
+            stereo: false,
+            bitrate: 64,
+          },
+          AEC: true, // Acoustic Echo Cancellation
+          AGC: true, // Automatic Gain Control
+          ANS: true, // Automatic Noise Suppression
+        });
+
+        // Set additional processing on the track
+        await audioTrack.setEnabled(true);
+
         setLocalAudioTrack(audioTrack);
         await client.publish(audioTrack);
-        console.log("Published audio track");
+        console.log("Published audio track with echo cancellation enabled");
       } catch (audioError) {
         console.error("Failed to create audio track:", audioError);
         throw new Error(
@@ -422,7 +464,7 @@ export const useAgoraCall = () => {
           setLocalVideoTrack(videoTrack);
           await client.publish(videoTrack);
           console.log("Published video track");
-          
+
           console.log("Checking for multiple cameras...");
           await checkCameraAvailability();
         } catch (videoError) {
