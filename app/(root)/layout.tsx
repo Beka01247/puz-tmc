@@ -45,9 +45,9 @@ const Layout = async ({ children }: { children: ReactNode }) => {
             <div>
               <h3 className="text-lg font-semibold mb-4">Контакты</h3>
               <p className="text-sm">
-                Email: support@sapatelemed.ru
+                Email: info@sapatelemed.kz
                 <br />
-                Телефон: +7 (999) 123-45-67
+                Телефон: +7 (771) 101-98-88
               </p>
             </div>
           </div>
