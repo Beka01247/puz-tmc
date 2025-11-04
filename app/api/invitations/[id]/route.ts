@@ -19,8 +19,9 @@ export async function PATCH(
     const updated = await db
       .update(invitations)
       .set({ status })
-      .where(eq(invitations.id, id));
-    if (updated.rowCount === 0) {
+      .where(eq(invitations.id, id))
+      .returning();
+    if (updated.length === 0) {
       return NextResponse.json(
         { error: "Invitation not found" },
         { status: 404 }
