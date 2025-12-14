@@ -16,7 +16,7 @@ interface MonitoringItem {
   id: string;
   title: string;
   unit: string;
-  inputType: "single" | "double" | "text";
+  inputType: "single" | "double" | "text" | "boolean";
   defaultValue: string;
 }
 
@@ -88,6 +88,22 @@ const MeasurementModal = ({
                 />
               </div>
             </>
+          ) : item.inputType === "boolean" ? (
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="value1" className="text-right">
+                Выбор
+              </Label>
+              <select
+                id="value1"
+                value={value1}
+                onChange={(e) => setValue1(e.target.value)}
+                className="col-span-3 border rounded-md p-2 text-black"
+              >
+                <option value="">Выберите...</option>
+                <option value="Да">Да</option>
+                <option value="Нет">Нет</option>
+              </select>
+            </div>
           ) : (
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="value1" className="text-right">
