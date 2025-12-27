@@ -14,9 +14,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const activeOnly = searchParams.get("activeOnly") === "true";
+    const patientId = searchParams.get("patientId");
 
     let whereClause;
-    if (activeOnly) {
+    if (patientId) {
+      // If patientId is provided, get active calls for that specific patient
+      whereClause = and(
+        eq(callNotifications.patientId, patientId),
+        eq(callNotifications.isActive, true)
+      );
+    } else if (activeOnly) {
       // Get only active call notifications where user is patient or caller
       whereClause = and(
         or(
@@ -70,6 +77,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Only doctors and nurses can initiate calls
+    const allowedUserTypes = [
+      "DOCTOR",
+      "DISTRICT_DOCTOR",
+      "SPECIALIST_DOCTOR",
+      "NURSE",
+      "REGIONAL_ADMIN",
+      "CITY_ADMIN",
+      "DISTRICT_ADMIN",
+    ];
+
+    if (!allowedUserTypes.includes(session.user.userType)) {
+      return NextResponse.json(
+        { error: "Only medical providers can initiate calls" },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { patientId, channelName, isVideoCall, participants } = body;
 
@@ -77,6 +102,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
+      );
+    }
+
+    // Check if there's already an active call for this patient by this caller
+    const existingActiveCall = await db
+      .select()
+      .from(callNotifications)
+      .where(
+        and(
+          eq(callNotifications.patientId, patientId),
+          eq(callNotifications.callerId, session.user.id),
+          eq(callNotifications.isActive, true)
+        )
+      )
+      .limit(1);
+
+    if (existingActiveCall.length > 0) {
+      return NextResponse.json(
+        {
+          error:
+            "У вас уже есть активный звонок с этим пациентом. Завершите текущий звонок перед началом нового.",
+          existingCall: existingActiveCall[0],
+        },
+        { status: 409 } // Conflict status
       );
     }
 

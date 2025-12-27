@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
 import { Menu } from "lucide-react";
+import GlobalCallNotification from "@/components/GlobalCallNotification";
 
 interface NavItem {
   title: string;
@@ -101,6 +102,9 @@ const DashboardLayout = ({
 
   return (
     <div className="flex min-h-screen">
+      {/* Global Call Notification */}
+      {session?.id && <GlobalCallNotification currentUserId={session.id} />}
+      
       {/* Sidebar & mobile overlay */}
       {sidebarOpen && (
         <div

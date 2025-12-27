@@ -33,8 +33,6 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     localVideoTrack,
     startCall,
     endCall,
-    toggleAudio,
-    toggleVideo,
     switchCamera,
     getRemoteVideoTrack,
     stopRecording,
@@ -51,6 +49,8 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     userType: string;
     name: string;
   } | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const hasAttemptedConnection = useRef(false);
 
   // Fetch current user information when component mounts
   useEffect(() => {
@@ -71,6 +71,94 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
 
     if (isOpen) {
       fetchCurrentUserInfo();
+    }
+  }, [isOpen]);
+
+  // Auto-start call when modal opens (skip pre-call screen)
+  useEffect(() => {
+    const autoStartCall = async () => {
+      if (
+        isOpen &&
+        !isCallStarted &&
+        !hasAttemptedConnection.current &&
+        !isConnecting
+      ) {
+        hasAttemptedConnection.current = true;
+        setIsConnecting(true);
+
+        // Try to start call with retry on UID conflict
+        let retryCount = 0;
+        const maxRetries = 2;
+
+        while (retryCount <= maxRetries) {
+          try {
+            // First attempt: use consistent UID
+            // Retry attempts: add random suffix to avoid conflict
+            const baseUid =
+              parseInt(currentUserId) || Math.floor(Math.random() * 100000);
+            const uid =
+              retryCount === 0
+                ? baseUid
+                : baseUid + Math.floor(Math.random() * 1000);
+
+            console.log(
+              `Attempting to join with UID: ${uid} (attempt ${retryCount + 1})`
+            );
+            await startCall(channelName, uid, isVideoCall);
+            setIsCallStarted(true);
+            break; // Success, exit loop
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "";
+
+            // If UID conflict and we have retries left, try again
+            if (
+              errorMessage.includes("UID_CONFLICT") ||
+              errorMessage.includes("Конфликт подключения")
+            ) {
+              retryCount++;
+              if (retryCount <= maxRetries) {
+                console.log(
+                  `UID conflict detected, retrying... (${retryCount}/${maxRetries})`
+                );
+                // Wait a bit before retry
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                continue;
+              }
+            }
+
+            // If not a UID conflict or out of retries, show error and close
+            console.error("Failed to start call:", error);
+            alert(
+              "Не удалось начать звонок. Проверьте подключение к интернету."
+            );
+            onClose();
+            break;
+          }
+        }
+
+        setIsConnecting(false);
+      }
+    };
+
+    autoStartCall();
+  }, [
+    isOpen,
+    isCallStarted,
+    channelName,
+    currentUserId,
+    isVideoCall,
+    startCall,
+    onClose,
+    isConnecting,
+  ]);
+
+  // Reset connection attempt flag when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      hasAttemptedConnection.current = false;
+      setIsCallStarted(false);
+      setCallDuration(0);
+      setActiveSpeakerUid(null);
     }
   }, [isOpen]);
 
@@ -113,14 +201,14 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
         }
       }
     });
-  }, [callState.remoteUsers, getRemoteVideoTrack, activeSpeakerUid]);
+  }, [callState.remoteUsers, getRemoteVideoTrack]);
 
   // Set first remote user as active speaker when they join
   useEffect(() => {
     if (callState.remoteUsers.length > 0 && !activeSpeakerUid) {
       setActiveSpeakerUid(callState.remoteUsers[0]);
     }
-  }, [callState.remoteUsers, activeSpeakerUid]);
+  }, [callState.remoteUsers]);
 
   // Play video in main speaker view when active speaker changes
   useEffect(() => {
@@ -143,17 +231,6 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     }
   }, [activeSpeakerUid, callState.remoteUsers, getRemoteVideoTrack]); // Re-run when remote users update (tracks published)
 
-  const handleStartCall = async () => {
-    try {
-      const uid = parseInt(currentUserId) || Math.floor(Math.random() * 10000);
-      await startCall(channelName, uid, isVideoCall);
-      setIsCallStarted(true);
-    } catch (error) {
-      console.error("Failed to start call:", error);
-      alert("Не удалось начать звонок. Проверьте подключение к интернету.");
-    }
-  };
-
   const handleSelectSpeaker = (uid: string) => {
     setActiveSpeakerUid(uid);
   };
@@ -167,6 +244,9 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
     setIsCallStarted(false);
     setCallDuration(0);
     onClose();
+
+    // Hard reload the page to clean up all call state and prevent UID conflicts
+    window.location.reload();
   };
 
   const handleStartScreenRecording = async () => {
@@ -276,21 +356,77 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
       <div className="bg-white w-full h-full flex flex-col">
         {/* Header */}
         <div className="p-3 sm:p-4 border-b flex justify-between items-center flex-shrink-0 bg-gray-50">
-          <div>
-            <h3 className="text-base sm:text-lg font-semibold">
-              {isVideoCall ? "Видео звонок" : "Аудио звонок"}
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h3 className="text-base sm:text-lg font-semibold">
+                {isVideoCall ? "Видео звонок" : "Аудио звонок"}
+                {callState.isConnected && (
+                  <span className="ml-2 text-sm font-normal text-gray-600">
+                    ({callState.remoteUsers.length + 1} участник
+                    {callState.remoteUsers.length === 0
+                      ? ""
+                      : callState.remoteUsers.length === 1
+                        ? "а"
+                        : "ов"}
+                    )
+                  </span>
+                )}
+              </h3>
+
+              {/* Network Quality Indicator */}
               {callState.isConnected && (
-                <span className="ml-2 text-sm font-normal text-gray-600">
-                  ({callState.remoteUsers.length + 1} участник
-                  {callState.remoteUsers.length === 0
-                    ? ""
-                    : callState.remoteUsers.length === 1
-                      ? "а"
-                      : "ов"}
-                  )
-                </span>
+                <div className="flex items-center gap-1">
+                  {callState.networkQuality.downlink <= 2 ? (
+                    <div
+                      className="flex items-center gap-1 text-green-600"
+                      title="Отличное соединение"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+                      </svg>
+                    </div>
+                  ) : callState.networkQuality.downlink <= 4 ? (
+                    <div
+                      className="flex items-center gap-1 text-yellow-600"
+                      title="Среднее соединение"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7z" />
+                      </svg>
+                    </div>
+                  ) : (
+                    <div
+                      className="flex items-center gap-1 text-red-600"
+                      title="Плохое соединение"
+                    >
+                      <svg
+                        className="w-4 h-4"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
               )}
-            </h3>
+
+              {/* Connection State Indicator */}
+              {callState.connectionState === "RECONNECTING" && (
+                <div className="flex items-center gap-1 text-orange-600">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
+                  <span className="text-xs">Переподключение...</span>
+                </div>
+              )}
+            </div>
             {callState.isConnected && (
               <p className="text-sm text-gray-600">
                 Длительность: {formatDuration(callDuration)}
@@ -371,34 +507,19 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
         {/* Video Area */}
         <div className="flex-1 bg-gray-900 relative">
           {!isCallStarted ? (
-            // Pre-call screen
+            // Connecting screen
             <div className="flex items-center justify-center h-full">
               <div className="text-center text-white">
                 <div className="mb-4">
                   <div className="w-20 h-20 mx-auto bg-gray-600 rounded-full flex items-center justify-center mb-4">
-                    <svg
-                      className="w-10 h-10"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
                   </div>
-                  <h4 className="text-xl font-semibold">{recipientName}</h4>
+                  <h4 className="text-xl font-semibold">Подключение...</h4>
                   <p className="text-gray-400">
-                    {isVideoCall ? "Видео звонок" : "Аудио звонок"}
+                    {isVideoCall ? "Видео звонок" : "Аудио звонок"} с{" "}
+                    {recipientName}
                   </p>
                 </div>
-                <button
-                  onClick={handleStartCall}
-                  className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 rounded-full font-semibold"
-                >
-                  Начать звонок
-                </button>
               </div>
             </div>
           ) : (
@@ -555,104 +676,6 @@ const VideoCallModal: React.FC<VideoCallModalProps> = ({
         {/* Controls */}
         {isCallStarted && (
           <div className="p-3 sm:p-4 bg-gray-100 flex justify-center space-x-2 sm:space-x-4 flex-shrink-0">
-            {/* Mute Audio */}
-            <button
-              onClick={toggleAudio}
-              className={`p-2 sm:p-3 rounded-full ${
-                callState.isAudioEnabled
-                  ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                  : "bg-red-500 hover:bg-red-600 text-white"
-              }`}
-              title={
-                callState.isAudioEnabled
-                  ? "Выключить микрофон"
-                  : "Включить микрофон"
-              }
-            >
-              <svg
-                className="w-5 h-5 sm:w-6 sm:h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                {callState.isAudioEnabled ? (
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                  />
-                ) : (
-                  <>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                    />
-                    <line
-                      x1="3"
-                      y1="3"
-                      x2="21"
-                      y2="21"
-                      strokeLinecap="round"
-                      strokeWidth={2.5}
-                    />
-                  </>
-                )}
-              </svg>
-            </button>
-
-            {/* Toggle Video (only for video calls) */}
-            {isVideoCall && (
-              <button
-                onClick={toggleVideo}
-                className={`p-2 sm:p-3 rounded-full ${
-                  callState.isVideoEnabled
-                    ? "bg-gray-200 hover:bg-gray-300 text-gray-700"
-                    : "bg-red-500 hover:bg-red-600 text-white"
-                }`}
-                title={
-                  callState.isVideoEnabled
-                    ? "Выключить камеру"
-                    : "Включить камеру"
-                }
-              >
-                <svg
-                  className="w-5 h-5 sm:w-6 sm:h-6"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  {callState.isVideoEnabled ? (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  ) : (
-                    <>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                      />
-                      <line
-                        x1="3"
-                        y1="3"
-                        x2="21"
-                        y2="21"
-                        strokeLinecap="round"
-                        strokeWidth={2.5}
-                      />
-                    </>
-                  )}
-                </svg>
-              </button>
-            )}
-
             {/* Switch Camera (only show when multiple cameras available) */}
             {isVideoCall &&
               callState.hasMultipleCameras &&

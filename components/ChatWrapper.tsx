@@ -21,7 +21,7 @@ const ChatWrapper: FC<ChatWrapperProps> = ({
   currentUser,
   joinChannelName,
 }) => {
-  const client = new Ably.Realtime({ authUrl: "api" });
+  const client = new Ably.Realtime({ authUrl: "/api/ably" });
   const channelName = `patient-${patientId}`;
 
   return (

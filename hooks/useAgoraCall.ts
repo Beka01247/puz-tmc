@@ -34,6 +34,16 @@ export interface CallState {
   isConverting: boolean;
   hasMultipleCameras: boolean;
   isFrontCamera: boolean;
+  networkQuality: {
+    uplink: number;
+    downlink: number;
+  };
+  connectionState:
+    | "DISCONNECTED"
+    | "CONNECTING"
+    | "CONNECTED"
+    | "RECONNECTING"
+    | "DISCONNECTING";
 }
 
 export const useAgoraCall = () => {
@@ -52,6 +62,11 @@ export const useAgoraCall = () => {
     isConverting: false,
     hasMultipleCameras: false,
     isFrontCamera: true,
+    networkQuality: {
+      uplink: 0,
+      downlink: 0,
+    },
+    connectionState: "DISCONNECTED",
   });
 
   // Recording state
@@ -240,6 +255,7 @@ export const useAgoraCall = () => {
       });
 
       agoraClient.on("user-left", (user: IAgoraRTCRemoteUser) => {
+        console.log("User left:", user.uid);
         remoteVideoTracksRef.current.delete(user.uid.toString());
         remoteAudioTracksRef.current.delete(user.uid.toString());
 
@@ -255,6 +271,71 @@ export const useAgoraCall = () => {
           syncVideoElements();
           syncAudioNodes();
         }
+      });
+
+      // Monitor network quality
+      agoraClient.on("network-quality", (stats) => {
+        setCallState((prev) => ({
+          ...prev,
+          networkQuality: {
+            uplink: stats.uplinkNetworkQuality,
+            downlink: stats.downlinkNetworkQuality,
+          },
+        }));
+      });
+
+      // Monitor connection state
+      agoraClient.on(
+        "connection-state-change",
+        (curState, prevState, reason) => {
+          console.log("Connection state changed:", {
+            current: curState,
+            previous: prevState,
+            reason,
+          });
+
+          let connectionState: CallState["connectionState"] = "DISCONNECTED";
+          switch (curState) {
+            case "DISCONNECTED":
+              connectionState = "DISCONNECTED";
+              break;
+            case "CONNECTING":
+              connectionState = "CONNECTING";
+              break;
+            case "CONNECTED":
+              connectionState = "CONNECTED";
+              break;
+            case "RECONNECTING":
+              connectionState = "RECONNECTING";
+              break;
+            case "DISCONNECTING":
+              connectionState = "DISCONNECTING";
+              break;
+          }
+
+          setCallState((prev) => ({
+            ...prev,
+            connectionState,
+          }));
+
+          // Show alert if disconnected unexpectedly
+          if (curState === "DISCONNECTED" && prevState === "CONNECTED") {
+            if (reason === "LEAVE") {
+              console.log("User left the call normally");
+            } else {
+              console.warn("Unexpected disconnection:", reason);
+              // Alert user about connection issues
+              alert(
+                "Соединение потеряно. Пожалуйста, проверьте подключение к интернету."
+              );
+            }
+          }
+        }
+      );
+
+      // Handle errors
+      agoraClient.on("exception", (event) => {
+        console.error("Agora exception:", event);
       });
     };
 
@@ -407,7 +488,9 @@ export const useAgoraCall = () => {
     uid: number,
     isVideoCall: boolean
   ) => {
-    if (!client) return;
+    if (!client) {
+      throw new Error("Agora client not initialized");
+    }
 
     try {
       const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID;
@@ -417,10 +500,77 @@ export const useAgoraCall = () => {
 
       console.log("Starting call:", { channelName, uid, isVideoCall });
 
+      // Clean up any existing connection before starting new call
+      if (
+        callState.isConnected ||
+        callState.connectionState !== "DISCONNECTED"
+      ) {
+        console.log("Cleaning up existing connection before rejoining...");
+        try {
+          // Stop and close tracks
+          if (localAudioTrack) {
+            localAudioTrack.stop();
+            localAudioTrack.close();
+            setLocalAudioTrack(null);
+          }
+          if (localVideoTrack) {
+            localVideoTrack.stop();
+            localVideoTrack.close();
+            setLocalVideoTrack(null);
+          }
+          // Leave channel if still connected
+          if (
+            client.connectionState === "CONNECTED" ||
+            client.connectionState === "CONNECTING"
+          ) {
+            await client.leave();
+            // Wait longer for Agora to fully process the leave and clean up the UID
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+          remoteVideoTracksRef.current.clear();
+          remoteAudioTracksRef.current.clear();
+
+          // Reset call state to ensure clean slate
+          setCallState({
+            isConnected: false,
+            isAudioEnabled: false,
+            isVideoEnabled: false,
+            remoteUsers: [],
+            isRecording: false,
+            conversionProgress: 0,
+            isConverting: false,
+            hasMultipleCameras: false,
+            isFrontCamera: true,
+            networkQuality: {
+              uplink: 0,
+              downlink: 0,
+            },
+            connectionState: "DISCONNECTED",
+          });
+
+          console.log("Previous connection cleaned up");
+        } catch (cleanupError) {
+          console.warn("Error during cleanup before rejoin:", cleanupError);
+          // Wait longer even if cleanup failed to let Agora recover
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      // Update connection state
+      setCallState((prev) => ({
+        ...prev,
+        connectionState: "CONNECTING",
+      }));
+
       const token = await generateToken(channelName, uid, "publisher");
 
-      // Join the channel
-      await client.join(appId, channelName, token, uid);
+      // Join the channel with timeout
+      const joinPromise = client.join(appId, channelName, token, uid);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Connection timeout")), 15000)
+      );
+
+      await Promise.race([joinPromise, timeoutPromise]);
       console.log("Joined channel successfully");
 
       // Create and publish audio track
@@ -490,11 +640,39 @@ export const useAgoraCall = () => {
         isConnected: true,
         isAudioEnabled: true,
         isVideoEnabled: isVideoCall,
+        connectionState: "CONNECTED",
       }));
 
       console.log("Call started successfully");
     } catch (error) {
       console.error("Error starting call:", error);
+
+      // Reset connection state on error
+      setCallState((prev) => ({
+        ...prev,
+        connectionState: "DISCONNECTED",
+      }));
+
+      // Provide user-friendly error messages
+      if (error instanceof Error) {
+        if (error.message.includes("UID_CONFLICT")) {
+          throw new Error(
+            "Конфликт подключения. Пожалуйста, подождите несколько секунд и попробуйте снова."
+          );
+        } else if (error.message.includes("timeout")) {
+          throw new Error(
+            "Время подключения истекло. Проверьте подключение к интернету."
+          );
+        } else if (error.message.includes("permission")) {
+          throw new Error(
+            "Доступ к камере/микрофону запрещен. Разрешите доступ в настройках браузера."
+          );
+        } else if (error.message.includes("device")) {
+          throw new Error(
+            "Камера или микрофон недоступны. Проверьте устройства."
+          );
+        }
+      }
       throw error;
     }
   };
@@ -503,22 +681,72 @@ export const useAgoraCall = () => {
     if (!client) return;
 
     try {
+      console.log("Ending call and cleaning up all tracks...");
+
+      // Stop all remote audio tracks first to prevent lingering audio
+      remoteAudioTracksRef.current.forEach((audioTrack, uid) => {
+        try {
+          console.log(`Stopping remote audio track for user ${uid}`);
+          audioTrack.stop();
+        } catch (err) {
+          console.warn(`Error stopping remote audio for ${uid}:`, err);
+        }
+      });
+
+      // Stop all remote video tracks
+      remoteVideoTracksRef.current.forEach((videoTrack, uid) => {
+        try {
+          console.log(`Stopping remote video track for user ${uid}`);
+          videoTrack.stop();
+        } catch (err) {
+          console.warn(`Error stopping remote video for ${uid}:`, err);
+        }
+      });
+
+      // Unpublish local tracks before closing them
+      if (localAudioTrack || localVideoTrack) {
+        try {
+          const tracksToUnpublish = [];
+          if (localAudioTrack) tracksToUnpublish.push(localAudioTrack);
+          if (localVideoTrack) tracksToUnpublish.push(localVideoTrack);
+
+          if (tracksToUnpublish.length > 0) {
+            await client.unpublish(tracksToUnpublish);
+            console.log("Unpublished local tracks");
+          }
+        } catch (err) {
+          console.warn("Error unpublishing tracks:", err);
+        }
+      }
+
       // Stop and close local tracks
       if (localAudioTrack) {
-        localAudioTrack.stop();
-        localAudioTrack.close();
+        try {
+          localAudioTrack.stop();
+          localAudioTrack.close();
+          console.log("Closed local audio track");
+        } catch (err) {
+          console.warn("Error closing local audio:", err);
+        }
         setLocalAudioTrack(null);
       }
 
       if (localVideoTrack) {
-        localVideoTrack.stop();
-        localVideoTrack.close();
+        try {
+          localVideoTrack.stop();
+          localVideoTrack.close();
+          console.log("Closed local video track");
+        } catch (err) {
+          console.warn("Error closing local video:", err);
+        }
         setLocalVideoTrack(null);
       }
 
       // Leave the channel
       await client.leave();
+      console.log("Left Agora channel");
 
+      // Clear all state
       setCallState({
         isConnected: false,
         isAudioEnabled: false,
@@ -529,43 +757,105 @@ export const useAgoraCall = () => {
         isConverting: false,
         hasMultipleCameras: false,
         isFrontCamera: true,
+        networkQuality: {
+          uplink: 0,
+          downlink: 0,
+        },
+        connectionState: "DISCONNECTED",
       });
 
       // Clear remote tracks
       remoteVideoTracksRef.current.clear();
       remoteAudioTracksRef.current.clear();
+
+      console.log("Call cleanup complete");
     } catch (error) {
       console.error("Error ending call:", error);
+      // Force cleanup even if there's an error
+      setLocalAudioTrack(null);
+      setLocalVideoTrack(null);
+      remoteVideoTracksRef.current.clear();
+      remoteAudioTracksRef.current.clear();
+      setCallState({
+        isConnected: false,
+        isAudioEnabled: false,
+        isVideoEnabled: false,
+        remoteUsers: [],
+        isRecording: false,
+        conversionProgress: 0,
+        isConverting: false,
+        hasMultipleCameras: false,
+        isFrontCamera: true,
+        networkQuality: {
+          uplink: 0,
+          downlink: 0,
+        },
+        connectionState: "DISCONNECTED",
+      });
     }
   };
 
   const toggleAudio = async () => {
-    if (localAudioTrack) {
-      await localAudioTrack.setEnabled(!callState.isAudioEnabled);
+    if (!localAudioTrack) {
+      console.warn("Cannot toggle audio: audio track not available");
+      return;
+    }
+
+    try {
+      const newAudioState = !callState.isAudioEnabled;
+      await localAudioTrack.setEnabled(newAudioState);
+
       setCallState((prev) => ({
         ...prev,
-        isAudioEnabled: !prev.isAudioEnabled,
+        isAudioEnabled: newAudioState,
       }));
+
+      console.log(`Audio toggled to: ${newAudioState}`);
+    } catch (error) {
+      console.error("Error toggling audio:", error);
     }
   };
 
   const toggleVideo = async () => {
+    // Ensure we're only working with video track
     if (localVideoTrack) {
-      await localVideoTrack.setEnabled(!callState.isVideoEnabled);
-      setCallState((prev) => ({
-        ...prev,
-        isVideoEnabled: !prev.isVideoEnabled,
-      }));
+      try {
+        const newVideoState = !callState.isVideoEnabled;
+        console.log(
+          `Toggling video: ${callState.isVideoEnabled} -> ${newVideoState}`
+        );
+
+        // Only modify the video track, never touch audio track
+        await localVideoTrack.setEnabled(newVideoState);
+
+        setCallState((prev) => ({
+          ...prev,
+          isVideoEnabled: newVideoState,
+          // Explicitly preserve audio state - don't touch it
+          isAudioEnabled: prev.isAudioEnabled,
+        }));
+
+        console.log(`Video toggled successfully: ${newVideoState}`);
+      } catch (error) {
+        console.error("Error toggling video:", error);
+        alert("Не удалось переключить камеру. Попробуйте еще раз.");
+      }
     } else if (callState.isConnected && client) {
       // Start video if not already started
       try {
+        console.log("Creating new video track...");
         const agora = await initAgoraRTC();
         if (!agora) return;
 
         const videoTrack = await agora.createCameraVideoTrack();
         setLocalVideoTrack(videoTrack);
         await client.publish(videoTrack);
-        setCallState((prev) => ({ ...prev, isVideoEnabled: true }));
+        setCallState((prev) => ({
+          ...prev,
+          isVideoEnabled: true,
+          // Explicitly preserve audio state
+          isAudioEnabled: prev.isAudioEnabled,
+        }));
         console.log("Video enabled successfully");
       } catch (error) {
         console.warn("Failed to enable video:", error);
@@ -573,6 +863,10 @@ export const useAgoraCall = () => {
           "Camera not available. Please check your camera permissions or ensure no other application is using the camera."
         );
       }
+    } else {
+      console.warn(
+        "Cannot toggle video: video track not available and not connected"
+      );
     }
   };
 
