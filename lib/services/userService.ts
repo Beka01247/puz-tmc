@@ -84,6 +84,7 @@ export async function fetchUserInfo(userId: string): Promise<UserInfo | null> {
       .select({
         id: riskGroups.id,
         name: riskGroups.name,
+        condition: riskGroups.condition,
         createdAt: riskGroups.createdAt,
       })
       .from(riskGroups)

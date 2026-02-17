@@ -37,7 +37,24 @@ export const measurementTypeEnum = pgEnum("measurementType", [
   "ultrasound",
   "xray",
   "inr",
+  "ldl-cholesterol",
+  "total-cholesterol",
+  "egfr",
+  "bmi",
+  "creatinine",
+  "hba1c",
+  "foot-exam",
+  "eye-exam",
+  "smoking",
+  "urine-microalbumin",
+  "urine-creatinine",
+  "sodium",
+  "potassium",
+  "probnp",
+  "ejection-fraction",
+  "echocardiography",
 ]);
+export const puzConditionEnum = pgEnum("puzCondition", ["АГ", "ХСН", "СД"]);
 
 export const alertStatusEnum = pgEnum("alertStatus", [
   "NORMAL",
@@ -100,6 +117,7 @@ export const riskGroups = pgTable("risk_groups", {
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  condition: puzConditionEnum("condition"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

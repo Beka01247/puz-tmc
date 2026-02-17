@@ -9,11 +9,59 @@ import { verifyPatientAccess } from "@/lib/utils/patientVerification";
 
 const riskGroupSchema = z.object({
   name: z.string().min(1, "Название группы обязательно").max(255),
+  condition: z.enum(["АГ", "ХСН", "СД"]).optional(),
 });
 
 const riskGroupIdSchema = z.object({
   id: z.string().uuid("Неверный формат ID"),
 });
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const resolvedParams = await params;
+    const session = await auth();
+    if (!session || !session.user?.id) {
+      return NextResponse.json(
+        { error: "Неавторизованный доступ" },
+        { status: 401 }
+      );
+    }
+
+    // Allow patients to view their own risk groups
+    if (
+      session.user.id !== resolvedParams.id &&
+      !isMedicalProvider(session.user.userType)
+    ) {
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
+
+    // For medical providers, verify patient access
+    if (isMedicalProvider(session.user.userType)) {
+      await verifyPatientAccess(resolvedParams.id, session.user);
+    }
+
+    const patientRiskGroups = await db
+      .select({
+        id: riskGroups.id,
+        name: riskGroups.name,
+        condition: riskGroups.condition,
+        createdAt: riskGroups.createdAt,
+      })
+      .from(riskGroups)
+      .where(eq(riskGroups.userId, resolvedParams.id));
+
+    return NextResponse.json(patientRiskGroups, { status: 200 });
+  } catch (error) {
+    console.error("Ошибка при получении групп риска:", error);
+    return NextResponse.json(
+      { error: "Не удалось получить группы риска" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(
   request: Request,
@@ -37,15 +85,20 @@ export async function POST(
     await verifyPatientAccess(resolvedParams.id, session.user);
 
     const body = await request.json();
-    const { name } = riskGroupSchema.parse(body);
+    const { name, condition } = riskGroupSchema.parse(body);
 
     const [newRiskGroup] = await db
       .insert(riskGroups)
       .values({
         userId: resolvedParams.id,
         name,
+        condition,
       })
-      .returning({ id: riskGroups.id, name: riskGroups.name });
+      .returning({
+        id: riskGroups.id,
+        name: riskGroups.name,
+        condition: riskGroups.condition,
+      });
 
     return NextResponse.json(newRiskGroup, { status: 201 });
   } catch (error) {

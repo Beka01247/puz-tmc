@@ -9,10 +9,18 @@ import {
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface RiskGroup {
   id?: string;
   name: string;
+  condition?: string;
 }
 
 interface EditRiskGroupsModalProps {
@@ -31,7 +39,13 @@ export const EditRiskGroupsModal = ({
   onSave,
 }: EditRiskGroupsModalProps) => {
   const [riskGroups, setRiskGroups] = useState<RiskGroup[]>(initialRiskGroups);
+  const [selectedCondition, setSelectedCondition] = useState<string>("АГ");
   const ALLOWED_RISK_GROUPS = ["ПУЗ", "ДН"];
+  const PUZ_CONDITIONS = [
+    { value: "АГ", label: "АГ (Артериальная гипертензия)" },
+    { value: "ХСН", label: "ХСН (Хроническая сердечная недостаточность)" },
+    { value: "СД", label: "СД (Сахарный диабет)" },
+  ];
 
   const handleAddRiskGroup = async (groupName: string) => {
     // If there's an existing group, remove it first
@@ -45,6 +59,7 @@ export const EditRiskGroupsModal = ({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: groupName,
+          condition: groupName === "ПУЗ" ? selectedCondition : undefined,
         }),
       });
 
@@ -104,6 +119,11 @@ export const EditRiskGroupsModal = ({
               <div key={index} className="flex items-center gap-2">
                 <div className="flex-1 p-2 border rounded-md bg-gray-50">
                   {riskGroup.name}
+                  {riskGroup.condition && (
+                    <span className="ml-2 text-sm text-gray-600">
+                      ({riskGroup.condition})
+                    </span>
+                  )}
                 </div>
                 <Button
                   variant="outline"
@@ -118,6 +138,26 @@ export const EditRiskGroupsModal = ({
             <p className="text-gray-500">Группы отсутствуют</p>
           )}
           <div className="flex flex-col gap-2">
+            <div className="mb-2">
+              <label className="text-sm font-medium mb-2 block">
+                Тип ПУЗ (применяется только для группы ПУЗ):
+              </label>
+              <Select
+                value={selectedCondition}
+                onValueChange={setSelectedCondition}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите тип" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PUZ_CONDITIONS.map((condition) => (
+                    <SelectItem key={condition.value} value={condition.value}>
+                      {condition.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2">
               {ALLOWED_RISK_GROUPS.map((groupName) => (
                 <Button

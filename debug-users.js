@@ -6,7 +6,7 @@ const { users } = require("./db/schema");
 async function checkUsers() {
   try {
     // You'll need to replace this with your actual database connection string
-    const sql = postgres(process.env.DATABASE_URL || "your-connection-string");
+    const sql = postgres(process.env.NEON_DB_URL || "your-connection-string");
     const db = drizzle(sql);
 
     const allUsers = await db

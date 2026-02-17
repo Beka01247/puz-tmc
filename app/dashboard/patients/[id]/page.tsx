@@ -74,6 +74,7 @@ async function fetchPatientData(patientId: string) {
     .select({
       id: riskGroups.id,
       name: riskGroups.name,
+      condition: riskGroups.condition,
     })
     .from(riskGroups)
     .where(eq(riskGroups.userId, patientId))

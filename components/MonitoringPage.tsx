@@ -15,8 +15,10 @@ interface MonitoringItem {
   id: string;
   title: string;
   unit: string;
-  inputType: "single" | "double" | "text" | "file";
+  inputType: "single" | "double" | "text" | "file" | "boolean";
   defaultValue: string;
+  isPUZ?: boolean;
+  puzConditions?: ("АГ" | "СД" | "ХСН")[];
 }
 
 interface Measurement {
@@ -162,6 +164,151 @@ export const monitoringItems: MonitoringItem[] = [
     inputType: "single",
     defaultValue: "0",
   },
+  // PUZ-specific measurements
+  {
+    id: "creatinine",
+    title: "КПД (Креатинин)",
+    unit: "мкмоль/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["АГ", "СД", "ХСН"],
+  },
+  {
+    id: "ldl-cholesterol",
+    title: "ЛПНП (Холестерин ЛПНП)",
+    unit: "ммоль/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["АГ", "СД", "ХСН"],
+  },
+  {
+    id: "egfr",
+    title: "рСКФ (Скорость клубочковой фильтрации)",
+    unit: "мл/мин",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["АГ", "ХСН", "СД"],
+  },
+  {
+    id: "total-cholesterol",
+    title: "О.Х. (Общий холестерин)",
+    unit: "ммоль/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["АГ", "ХСН"],
+  },
+  {
+    id: "sodium",
+    title: "Натрий",
+    unit: "ммоль/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["ХСН"],
+  },
+  {
+    id: "potassium",
+    title: "Калий",
+    unit: "ммоль/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["ХСН"],
+  },
+  {
+    id: "probnp",
+    title: "proBNP",
+    unit: "пг/мл",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["ХСН"],
+  },
+  {
+    id: "ejection-fraction",
+    title: "ФВ (Фракция выброса)",
+    unit: "%",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["ХСН"],
+  },
+  {
+    id: "echocardiography",
+    title: "Эхокардиография",
+    unit: "",
+    inputType: "file",
+    defaultValue: "Нет данных",
+    isPUZ: true,
+    puzConditions: ["ХСН"],
+  },
+  {
+    id: "glucose",
+    title: "Глюкоза",
+    unit: "ммоль/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["СД"],
+  },
+  {
+    id: "hba1c",
+    title: "САК (HbA1c - Гликированный гемоглобин)",
+    unit: "%",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["СД", "ХСН"],
+  },
+  {
+    id: "urine-microalbumin",
+    title: "Микроальбумин в моче",
+    unit: "мг/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["АГ", "СД", "ХСН"],
+  },
+  {
+    id: "urine-creatinine",
+    title: "Креатинин в моче",
+    unit: "ммоль/л",
+    inputType: "single",
+    defaultValue: "0",
+    isPUZ: true,
+    puzConditions: ["АГ", "СД", "ХСН"],
+  },
+  {
+    id: "foot-exam",
+    title: "Осмотр стоп",
+    unit: "",
+    inputType: "boolean",
+    defaultValue: "Нет",
+    isPUZ: true,
+    puzConditions: ["СД"],
+  },
+  {
+    id: "eye-exam",
+    title: "Осмотр глаз",
+    unit: "",
+    inputType: "boolean",
+    defaultValue: "Нет",
+    isPUZ: true,
+    puzConditions: ["СД"],
+  },
+  {
+    id: "smoking",
+    title: "Курение",
+    unit: "",
+    inputType: "boolean",
+    defaultValue: "Нет",
+    isPUZ: true,
+    puzConditions: ["АГ", "СД", "ХСН"],
+  },
 ];
 
 const MonitoringPage = ({ session }: MonitoringPageProps) => {
@@ -178,6 +325,10 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPUZPatient, setIsPUZPatient] = useState(false);
+  const [patientCondition, setPatientCondition] = useState<
+    "АГ" | "СД" | "ХСН" | null
+  >(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -198,6 +349,33 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
           const alertsData = await alertsResponse.json();
           setAlerts(alertsData);
         }
+
+        // Check if patient has PUZ risk group (any risk group with condition АГ/ХСН/СД)
+        const riskGroupsResponse = await fetch(
+          `/api/patients/${session.user.id}/risk-groups`
+        );
+        if (riskGroupsResponse.ok) {
+          const riskGroupsData = await riskGroupsResponse.json();
+          console.log("🔍 Risk Groups Data:", riskGroupsData);
+          // Find the first risk group with a condition
+          const puzRiskGroup = riskGroupsData.find(
+            (rg: { condition?: string }) =>
+              rg.condition && ["АГ", "ХСН", "СД"].includes(rg.condition)
+          );
+          console.log("🎯 PUZ Risk Group:", puzRiskGroup);
+          if (puzRiskGroup) {
+            setIsPUZPatient(true);
+            setPatientCondition(puzRiskGroup.condition as "АГ" | "СД" | "ХСН");
+            console.log("✅ Patient Condition set to:", puzRiskGroup.condition);
+          } else {
+            setIsPUZPatient(false);
+            setPatientCondition(null);
+            console.log("❌ No PUZ condition found");
+          }
+        } else {
+          setIsPUZPatient(false);
+          setPatientCondition(null);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -210,7 +388,44 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
 
   // Sort monitoringItems based on latest measurement createdAt
   const sortedMonitoringItems = useMemo(() => {
-    return [...monitoringItems].sort((a, b) => {
+    return [...monitoringItems]
+      .filter((item) => !item.isPUZ)
+      .sort((a, b) => {
+        const measurementA = measurements.find((m) => m.type === a.id);
+        const measurementB = measurements.find((m) => m.type === b.id);
+
+        const dateA = measurementA
+          ? new Date(measurementA.createdAt).getTime()
+          : 0;
+        const dateB = measurementB
+          ? new Date(measurementB.createdAt).getTime()
+          : 0;
+
+        return dateB - dateA; // Newest first
+      });
+  }, [measurements]);
+
+  // Sort PUZ items separately - filter by patient's condition
+  const sortedPUZItems = useMemo(() => {
+    if (!patientCondition) {
+      console.log("⚠️ No patient condition set");
+      return [];
+    }
+
+    console.log("🔍 Filtering PUZ items for condition:", patientCondition);
+    const puzItems = [...monitoringItems].filter((item) => {
+      const matches =
+        item.isPUZ && item.puzConditions?.includes(patientCondition);
+      if (item.isPUZ) {
+        console.log(
+          `  - ${item.title}: isPUZ=${item.isPUZ}, puzConditions=${item.puzConditions?.join(",")}, matches=${matches}`
+        );
+      }
+      return matches;
+    });
+    console.log("✅ Filtered PUZ Items count:", puzItems.length);
+
+    return puzItems.sort((a, b) => {
       const measurementA = measurements.find((m) => m.type === a.id);
       const measurementB = measurements.find((m) => m.type === b.id);
 
@@ -223,11 +438,11 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
 
       return dateB - dateA; // Newest first
     });
-  }, [measurements]);
+  }, [measurements, patientCondition]);
 
   const handleAddMeasurement = (item: MonitoringItem) => {
-    if (item.id === "ecg") {
-      // ECG doesn't have an add functionality, it only views external data
+    if (item.id === "ecg" || item.id === "bmi") {
+      // ECG and BMI don't have add functionality
       return;
     } else if (item.inputType === "file") {
       setSelectedFileUploadItem(item);
@@ -320,9 +535,45 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
 
   const getLatestMeasurement = (itemId: string) => {
     // For file-based items, we don't use measurements, they use files
-    if (itemId === "ultrasound" || itemId === "xray") {
+    if (
+      itemId === "ultrasound" ||
+      itemId === "xray" ||
+      itemId === "echocardiography"
+    ) {
       return {
         value: "Файлы",
+        date: null,
+      };
+    }
+
+    // Auto-calculate BMI from weight and height
+    if (itemId === "bmi") {
+      const weight = measurements
+        .filter((m) => m.type === "weight")
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0];
+      const height = measurements
+        .filter((m) => m.type === "height")
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )[0];
+
+      if (weight && height) {
+        const w = parseFloat(weight.value1);
+        const h = parseFloat(height.value1) / 100; // convert cm to m
+        if (w > 0 && h > 0) {
+          const bmi = (w / (h * h)).toFixed(1);
+          return {
+            value: bmi,
+            date: weight.createdAt,
+          };
+        }
+      }
+      return {
+        value: "0",
         date: null,
       };
     }
@@ -341,6 +592,16 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
         date: null,
       };
     }
+
+    // For boolean types, show Да/Нет
+    const item = monitoringItems.find((i) => i.id === itemId);
+    if (item?.inputType === "boolean") {
+      return {
+        value: measurement.value1 === "Да" ? "✓ Да" : "✗ Нет",
+        date: measurement.createdAt,
+      };
+    }
+
     return {
       value:
         measurement.type === "blood-pressure" && measurement.value2
@@ -372,82 +633,169 @@ const MonitoringPage = ({ session }: MonitoringPageProps) => {
         {loading ? (
           <div>Загрузка...</div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {sortedMonitoringItems.map((item) => {
-              const { value, date } = getLatestMeasurement(item.id);
-              const isAlert = hasActiveAlert(item.id);
-              return (
-                <Card
-                  key={item.id}
-                  className={isAlert ? "border-red-500 bg-red-50" : ""}
-                >
-                  <CardHeader>
-                    <CardTitle className={isAlert ? "text-red-700" : ""}>
-                      {item.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div
-                      className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
-                    >
-                      {value} {item.unit}
-                    </div>
-                    <p className="text-sm text-gray-400">
-                      {item.id === "ecg"
-                        ? "Данные ЭКГ из внешней системы"
-                        : item.inputType === "file"
-                          ? "Нажмите '+' для загрузки файла"
-                          : `Последнее измерение: ${date ? formatDate(date) : "Нет данных"}`}
-                    </p>
-                    {item.id !== "ecg" && (
-                      <Button
-                        className="mt-4 hover:bg-blue-400 bg-blue-200"
-                        variant="outline"
-                        onClick={() => handleAddMeasurement(item)}
+          <>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {sortedMonitoringItems.map((item) => {
+                const { value, date } = getLatestMeasurement(item.id);
+                const isAlert = hasActiveAlert(item.id);
+                return (
+                  <Card
+                    key={item.id}
+                    className={isAlert ? "border-red-500 bg-red-50" : ""}
+                  >
+                    <CardHeader>
+                      <CardTitle className={isAlert ? "text-red-700" : ""}>
+                        {item.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div
+                        className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
                       >
-                        +
+                        {value} {item.unit}
+                      </div>
+                      <p className="text-sm text-gray-400">
+                        {item.id === "ecg"
+                          ? "Данные ЭКГ из внешней системы"
+                          : item.id === "bmi"
+                            ? "Рассчитывается автоматически из роста и веса"
+                            : item.inputType === "file"
+                              ? "Нажмите '+' для загрузки файла"
+                              : item.inputType === "boolean"
+                                ? `Последнее обновление: ${date ? formatDate(date) : "Нет данных"}`
+                                : `Последнее измерение: ${date ? formatDate(date) : "Нет данных"}`}
+                      </p>
+                      {item.id !== "ecg" && item.id !== "bmi" && (
+                        <Button
+                          className="mt-4 hover:bg-blue-400 bg-blue-200"
+                          variant="outline"
+                          onClick={() => handleAddMeasurement(item)}
+                        >
+                          +
+                        </Button>
+                      )}
+                      <Button
+                        className={`mt-4 ${item.id !== "ecg" ? "ml-4" : ""} hover:bg-blue-400`}
+                        variant="outline"
+                        onClick={() => handleStatsClick(item)}
+                      >
+                        {item.inputType === "file" ? "Посмотреть" : "График"}
                       </Button>
-                    )}
-                    <Button
-                      className={`mt-4 ${item.id !== "ecg" ? "ml-4" : ""} hover:bg-blue-400`}
-                      variant="outline"
-                      onClick={() => handleStatsClick(item)}
-                    >
-                      {item.inputType === "file" ? "Посмотреть" : "График"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* PUZ Section */}
+            {isPUZPatient && sortedPUZItems.length > 0 && (
+              <Card className="mt-8 border-2 border-blue-300">
+                <CardHeader className="bg-blue-50">
+                  <CardTitle className="text-xl text-blue-700">
+                    ПУЗ (Пациенты под диспансерным наблюдением)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {sortedPUZItems.map((item) => {
+                      const { value, date } = getLatestMeasurement(item.id);
+                      const isAlert = hasActiveAlert(item.id);
+                      return (
+                        <Card
+                          key={item.id}
+                          className={
+                            isAlert
+                              ? "border-red-500 bg-red-50"
+                              : "border-blue-200"
+                          }
+                        >
+                          <CardHeader>
+                            <CardTitle
+                              className={
+                                isAlert ? "text-red-700" : "text-blue-700"
+                              }
+                            >
+                              {item.title}
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <div
+                              className={`text-2xl font-bold ${isAlert ? "text-red-700" : ""}`}
+                            >
+                              {value} {item.unit}
+                            </div>
+                            <p className="text-sm text-gray-400">
+                              {item.id === "bmi"
+                                ? "Рассчитывается автоматически из роста и веса"
+                                : item.inputType === "file"
+                                  ? "Нажмите '+' для загрузки файла"
+                                  : item.inputType === "boolean"
+                                    ? `Последнее обновление: ${date ? formatDate(date) : "Нет данных"}`
+                                    : `Последнее измерение: ${date ? formatDate(date) : "Нет данных"}`}
+                            </p>
+                            {item.id !== "bmi" && (
+                              <Button
+                                className="mt-4 hover:bg-blue-400 bg-blue-200"
+                                variant="outline"
+                                onClick={() => handleAddMeasurement(item)}
+                              >
+                                +
+                              </Button>
+                            )}
+                            {item.inputType !== "boolean" && (
+                              <Button
+                                className={`mt-4 ${item.id !== "bmi" ? "ml-4" : ""} hover:bg-blue-400`}
+                                variant="outline"
+                                onClick={() => handleStatsClick(item)}
+                              >
+                                {item.inputType === "file"
+                                  ? "Посмотреть"
+                                  : "График"}
+                              </Button>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
 
         {selectedItem && selectedItem.inputType !== "file" && (
           <MeasurementModal
             item={{
               ...selectedItem,
-              inputType: selectedItem.inputType as "single" | "double" | "text",
+              inputType: selectedItem.inputType as
+                | "single"
+                | "double"
+                | "text"
+                | "boolean",
             }}
             onClose={handleModalClose}
             onSubmit={handleModalSubmit}
           />
         )}
-        {selectedStatsItem && selectedStatsItem.inputType !== "file" && (
-          <StatisticsModal
-            item={{
-              ...selectedStatsItem,
-              inputType: selectedStatsItem.inputType as
-                | "single"
-                | "double"
-                | "text",
-            }}
-            measurements={measurements.filter(
-              (m) => m.type === selectedStatsItem.id
-            )}
-            patientId={session.user.id || ""}
-            onClose={handleStatsModalClose}
-          />
-        )}
+        {selectedStatsItem &&
+          selectedStatsItem.inputType !== "file" &&
+          selectedStatsItem.inputType !== "boolean" && (
+            <StatisticsModal
+              item={{
+                ...selectedStatsItem,
+                inputType: selectedStatsItem.inputType as
+                  | "single"
+                  | "double"
+                  | "text",
+              }}
+              measurements={measurements.filter(
+                (m) => m.type === selectedStatsItem.id
+              )}
+              patientId={session.user.id || ""}
+              onClose={handleStatsModalClose}
+            />
+          )}
         {selectedFileUploadItem && (
           <FileUploadModal
             title={selectedFileUploadItem.title}

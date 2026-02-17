@@ -60,6 +60,10 @@ export const MonitoringTab = ({
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [currentMeasurements, setCurrentMeasurements] =
     useState<Measurement[]>(measurements);
+  const [isPUZPatient, setIsPUZPatient] = useState(false);
+  const [patientCondition, setPatientCondition] = useState<
+    "АГ" | "СД" | "ХСН" | null
+  >(null);
 
   // Sync measurements when prop changes
   useEffect(() => {
@@ -82,6 +86,39 @@ export const MonitoringTab = ({
     };
 
     fetchAlerts();
+  }, [patientId]);
+
+  useEffect(() => {
+    const checkPUZStatus = async () => {
+      try {
+        const riskGroupsResponse = await fetch(
+          `/api/patients/${patientId}/risk-groups`
+        );
+        if (riskGroupsResponse.ok) {
+          const riskGroupsData = await riskGroupsResponse.json();
+          const puzRiskGroup = riskGroupsData.find(
+            (rg: { condition?: string }) =>
+              rg.condition && ["АГ", "ХСН", "СД"].includes(rg.condition)
+          );
+          if (puzRiskGroup) {
+            setIsPUZPatient(true);
+            setPatientCondition(puzRiskGroup.condition as "АГ" | "СД" | "ХСН");
+          } else {
+            setIsPUZPatient(false);
+            setPatientCondition(null);
+          }
+        } else {
+          setIsPUZPatient(false);
+          setPatientCondition(null);
+        }
+      } catch (error) {
+        console.error("Error checking PUZ status:", error);
+        setIsPUZPatient(false);
+        setPatientCondition(null);
+      }
+    };
+
+    checkPUZStatus();
   }, [patientId]);
 
   const canSetCriticalValues =
@@ -157,6 +194,11 @@ export const MonitoringTab = ({
     );
   };
 
+  const regularItems = monitoringItems.filter((item) => !item.isPUZ);
+  const puzItems = monitoringItems.filter(
+    (item) => item.isPUZ && item.puzConditions?.includes(patientCondition!)
+  );
+
   return (
     <>
       <Card>
@@ -165,7 +207,7 @@ export const MonitoringTab = ({
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {monitoringItems.map((item) => {
+            {regularItems.map((item) => {
               // Find the latest measurement for this type by sorting by createdAt desc
               const latestMeasurement = currentMeasurements
                 .filter((m) => m.type === item.id)
@@ -208,13 +250,19 @@ export const MonitoringTab = ({
                         ? "ЭКГ"
                         : item.inputType === "file"
                           ? "Файлы"
-                          : latestMeasurement
-                            ? item.inputType === "double" &&
-                              latestMeasurement.value2
-                              ? `${latestMeasurement.value1}/${latestMeasurement.value2}`
-                              : latestMeasurement.value1
-                            : item.defaultValue}{" "}
-                      {item.unit}
+                          : item.inputType === "boolean"
+                            ? latestMeasurement
+                              ? latestMeasurement.value1 === "Да"
+                                ? "✓ Да"
+                                : "✗ Нет"
+                              : "✗ Нет"
+                            : latestMeasurement
+                              ? item.inputType === "double" &&
+                                latestMeasurement.value2
+                                ? `${latestMeasurement.value1}/${latestMeasurement.value2}`
+                                : latestMeasurement.value1
+                              : item.defaultValue}{" "}
+                      {item.inputType !== "boolean" && item.unit}
                     </div>
                     <p className="text-sm text-gray-500">
                       {item.id === "ecg"
@@ -260,30 +308,35 @@ export const MonitoringTab = ({
                           Мониторинг
                         </Button>
                       )}
-                      {canSetCriticalValues && item.inputType !== "file" && (
-                        <CriticalValuesModal
-                          patientId={patientId}
-                          measurementType={item.id}
-                          measurementTitle={item.title}
-                          onSave={() => {
-                            // Refresh alerts after saving critical values
-                            const fetchAlerts = async () => {
-                              try {
-                                const response = await fetch(
-                                  `/api/patient-alerts?patientId=${patientId}`
-                                );
-                                if (response.ok) {
-                                  const alertsData = await response.json();
-                                  setAlerts(alertsData);
+                      {canSetCriticalValues &&
+                        item.inputType !== "file" &&
+                        item.inputType !== "boolean" && (
+                          <CriticalValuesModal
+                            patientId={patientId}
+                            measurementType={item.id}
+                            measurementTitle={item.title}
+                            onSave={() => {
+                              // Refresh alerts after saving critical values
+                              const fetchAlerts = async () => {
+                                try {
+                                  const response = await fetch(
+                                    `/api/patient-alerts?patientId=${patientId}`
+                                  );
+                                  if (response.ok) {
+                                    const alertsData = await response.json();
+                                    setAlerts(alertsData);
+                                  }
+                                } catch (error) {
+                                  console.error(
+                                    "Error fetching alerts:",
+                                    error
+                                  );
                                 }
-                              } catch (error) {
-                                console.error("Error fetching alerts:", error);
-                              }
-                            };
-                            fetchAlerts();
-                          }}
-                        />
-                      )}
+                              };
+                              fetchAlerts();
+                            }}
+                          />
+                        )}
                     </div>
                   </CardContent>
                 </Card>
@@ -292,6 +345,139 @@ export const MonitoringTab = ({
           </div>
         </CardContent>
       </Card>
+
+      {/* PUZ Section */}
+      {isPUZPatient && puzItems.length > 0 && (
+        <Card className="mt-6 border-2 border-blue-300">
+          <CardHeader className="bg-blue-50">
+            <CardTitle className="text-xl text-blue-700">
+              ПУЗ (Пациенты под диспансерным наблюдением)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {puzItems.map((item) => {
+                const latestMeasurement = currentMeasurements
+                  .filter((m) => m.type === item.id)
+                  .sort(
+                    (a, b) =>
+                      new Date(b.createdAt).getTime() -
+                      new Date(a.createdAt).getTime()
+                  )[0];
+                const activeAlert = getActiveAlert(item.id);
+                const isAlert = !!activeAlert;
+                return (
+                  <Card
+                    key={item.id}
+                    className={
+                      isAlert ? "border-red-500 bg-red-50" : "border-blue-200"
+                    }
+                  >
+                    <CardHeader>
+                      <CardTitle
+                        className={isAlert ? "text-red-700" : "text-blue-700"}
+                      >
+                        {item.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {isAlert && (
+                        <div className="mb-3 p-2 bg-red-100 border border-red-300 rounded-md">
+                          <p className="text-xs text-red-600">
+                            ⚠️ {activeAlert?.message}
+                          </p>
+                        </div>
+                      )}
+                      <div
+                        className={`text-2xl font-bold ${
+                          isAlert ? "text-red-700" : ""
+                        }`}
+                      >
+                        {item.inputType === "boolean"
+                          ? latestMeasurement
+                            ? latestMeasurement.value1 === "Да"
+                              ? "✓ Да"
+                              : "✗ Нет"
+                            : "✗ Нет"
+                          : latestMeasurement
+                            ? item.inputType === "double" &&
+                              latestMeasurement.value2
+                              ? `${latestMeasurement.value1}/${latestMeasurement.value2}`
+                              : latestMeasurement.value1
+                            : item.defaultValue}{" "}
+                        {item.inputType !== "boolean" && item.unit}
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {`Последнее измерение: ${
+                          latestMeasurement
+                            ? new Date(
+                                latestMeasurement.createdAt
+                              ).toLocaleDateString("ru-RU")
+                            : "Нет данных"
+                        }`}
+                      </p>
+                      <div className="flex space-x-2 mt-4">
+                        {canAddMeasurements && (
+                          <Button
+                            className="hover:bg-blue-400 bg-blue-200"
+                            variant="outline"
+                            onClick={() => handleAddMeasurement(item)}
+                          >
+                            +
+                          </Button>
+                        )}
+                        {item.inputType === "file" ? (
+                          <Button
+                            variant="outline"
+                            onClick={() => setSelectedFilesViewItem(item)}
+                          >
+                            Посмотреть
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            onClick={() => setSelectedStatsItem(item)}
+                          >
+                            Мониторинг
+                          </Button>
+                        )}
+                        {canSetCriticalValues &&
+                          item.inputType !== "file" &&
+                          item.inputType !== "boolean" && (
+                            <CriticalValuesModal
+                              patientId={patientId}
+                              measurementType={item.id}
+                              measurementTitle={item.title}
+                              onSave={() => {
+                                const fetchAlerts = async () => {
+                                  try {
+                                    const response = await fetch(
+                                      `/api/patient-alerts?patientId=${patientId}`
+                                    );
+                                    if (response.ok) {
+                                      const alertsData = await response.json();
+                                      setAlerts(alertsData);
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      "Error fetching alerts:",
+                                      error
+                                    );
+                                  }
+                                };
+                                fetchAlerts();
+                              }}
+                            />
+                          )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {selectedStatsItem && selectedStatsItem.inputType !== "file" && (
         <StatisticsModal
