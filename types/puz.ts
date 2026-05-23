@@ -35,6 +35,7 @@ export interface RegistryRow {
   phone?: string;
   address?: string;
   участок?: string; // Medical district
+  gender?: "МУЖСКОЙ" | "ЖЕНСКИЙ" | "ДРУГОЙ" | null;
   lastMeasurements: {
     kpd?: MeasurementValue; // КПД
     lpnp?: MeasurementValue; // ЛПНП
@@ -55,6 +56,10 @@ export interface RegistryRow {
     probnp?: MeasurementValue; // proBNP
     "ejection-fraction"?: MeasurementValue; // Фракция выброса
     echocardiography?: MeasurementValue; // ЭхоКГ
+    "iv-category"?: SmokingValue | null; // IV категория
+    "self-management-confidence"?: MeasurementValue; // Уверенность в самоменеджменте
+    weight?: MeasurementValue; // Вес
+    height?: MeasurementValue; // Рост
   };
   lastVisitMonthsAgo?: number;
   segment?: string;

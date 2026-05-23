@@ -44,6 +44,16 @@ const MeasurementModal = ({
       setError("Пожалуйста, введите значение.");
       return;
     }
+
+    // Validate self-management-confidence (0-10)
+    if (item.id === "self-management-confidence") {
+      const numValue = parseFloat(value1);
+      if (isNaN(numValue) || numValue < 0 || numValue > 10) {
+        setError("Уровень уверенности должен быть от 0 до 10.");
+        return;
+      }
+    }
+
     setError(null);
     onSubmit({
       value1,
@@ -109,14 +119,33 @@ const MeasurementModal = ({
               <Label htmlFor="value1" className="text-right">
                 Значение
               </Label>
-              <Input
-                id="value1"
-                type={item.inputType === "text" ? "text" : "number"}
-                value={value1}
-                onChange={(e) => setValue1(e.target.value)}
-                className="col-span-3 text-black"
-                placeholder={item.inputType === "text" ? "Введите данные" : "0"}
-              />
+              <div className="col-span-3">
+                <Input
+                  id="value1"
+                  type={item.inputType === "text" ? "text" : "number"}
+                  value={value1}
+                  onChange={(e) => setValue1(e.target.value)}
+                  className="text-black"
+                  placeholder={
+                    item.id === "self-management-confidence"
+                      ? "0-10"
+                      : item.inputType === "text"
+                        ? "Введите данные"
+                        : "0"
+                  }
+                  min={
+                    item.id === "self-management-confidence" ? "0" : undefined
+                  }
+                  max={
+                    item.id === "self-management-confidence" ? "10" : undefined
+                  }
+                />
+                {item.id === "self-management-confidence" && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Укажите уровень от 0 (низкий) до 10 (высокий)
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>

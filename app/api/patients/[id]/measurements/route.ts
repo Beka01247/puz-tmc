@@ -27,7 +27,8 @@ type MetricCode =
   | "potassium"
   | "probnp"
   | "ejection-fraction"
-  | "echocardiography";
+  | "echocardiography"
+  | "self-management-confidence";
 
 // Map metric codes back to measurement types
 const METRIC_TO_MEASUREMENT_MAP: Record<MetricCode, string[]> = {
@@ -50,6 +51,7 @@ const METRIC_TO_MEASUREMENT_MAP: Record<MetricCode, string[]> = {
   probnp: ["probnp"],
   "ejection-fraction": ["ejection-fraction"],
   echocardiography: ["echocardiography"],
+  "self-management-confidence": ["self-management-confidence"],
 };
 
 const measurementSchema = z.array(

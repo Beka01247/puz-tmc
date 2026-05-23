@@ -36,7 +36,9 @@ export type MetricCode =
   | "potassium"
   | "probnp"
   | "ejection-fraction"
-  | "echocardiography";
+  | "echocardiography"
+  | "iv-category"
+  | "self-management-confidence";
 
 // Mapping between measurement types in DB and metric codes
 export const MEASUREMENT_TYPE_MAP: Record<string, string> = {
@@ -65,6 +67,9 @@ export const MEASUREMENT_TYPE_MAP: Record<string, string> = {
   height: "height", // Used for BMI calculation
   // Lifestyle
   smoking: "smoking",
+  "iv-category": "iv-category",
+  // Self-management assessment
+  "self-management-confidence": "self-management-confidence",
   // Heart failure specific
   sodium: "sodium",
   potassium: "potassium",
@@ -158,6 +163,13 @@ export const AG_THRESHOLDS: Record<MetricCode, ThresholdRule> = {
     },
   },
 
+  // IV категория
+  "iv-category": {
+    categorical: {
+      green: ["false", "Нет", "No", "true", "Да", "Yes"],
+    },
+  },
+
   // Микроальбумин в моче - mg/L
   "urine-microalbumin": {
     green: { max: 30 },
@@ -196,6 +208,13 @@ export const AG_THRESHOLDS: Record<MetricCode, ThresholdRule> = {
 
   // Эхокардиография (Echocardiography) - Not primary for АГ
   echocardiography: {},
+
+  // Уверенность в самоменеджменте (Self-Management Confidence) - 0-10 scale
+  "self-management-confidence": {
+    green: { min: 7, max: 10 },
+    yellow: { min: 4, max: 6 },
+    red: { min: 0, max: 3 },
+  },
 
   // Weight and height are not evaluated directly
   weight: {},

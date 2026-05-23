@@ -230,6 +230,24 @@ export async function getLatestMeasurements(
       };
     }
 
+    // Map IV category
+    if (latestByType["iv-category"]) {
+      const ivCategory = latestByType["iv-category"];
+      result["iv-category"] = {
+        value: ivCategory.value1 === "Да" || ivCategory.value1 === "true",
+        date: ivCategory.createdAt?.toISOString() || new Date().toISOString(),
+      };
+    }
+
+    // Map self-management confidence
+    if (latestByType["self-management-confidence"]) {
+      const confidence = latestByType["self-management-confidence"];
+      result["self-management-confidence"] = {
+        value: parseFloat(confidence.value1) || confidence.value1,
+        date: confidence.createdAt?.toISOString() || new Date().toISOString(),
+      };
+    }
+
     // Map echocardiography (file type)
     if (latestByType["echocardiography"]) {
       const echo = latestByType["echocardiography"];
@@ -300,6 +318,7 @@ export async function getRegistryData(
         settlement: users.settlement,
         village: users.village,
         subdivision: users.subdivision,
+        gender: users.gender,
       })
       .from(users)
       .innerJoin(riskGroups, eq(riskGroups.userId, users.id))
@@ -361,6 +380,7 @@ export async function getRegistryData(
         phone: patient.telephone,
         address: address || undefined,
         участок: patient.subdivision || undefined,
+        gender: patient.gender || undefined,
         lastMeasurements,
         overallRisk,
         nextScreeningDate: nextScreeningDate.toISOString().split("T")[0],

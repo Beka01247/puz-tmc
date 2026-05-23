@@ -53,6 +53,7 @@ export const measurementTypeEnum = pgEnum("measurementType", [
   "probnp",
   "ejection-fraction",
   "echocardiography",
+  "iv-category",
 ]);
 export const puzConditionEnum = pgEnum("puzCondition", ["АГ", "ХСН", "СД"]);
 
@@ -97,6 +98,7 @@ export const users = pgTable("users", {
   telephone: varchar("telephone", { length: 20 }).notNull(),
   dateOfBirth: date("date_of_birth"),
   gender: genderEnum("gender"),
+  ivCategory: boolean("iv_category").default(false), // IV категория для ПУЗ пациентов
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });

@@ -19,7 +19,11 @@ type MetricCode =
   | "potassium"
   | "probnp"
   | "ejection-fraction"
-  | "echocardiography";
+  | "echocardiography"
+  | "iv-category"
+  | "self-management-confidence"
+  | "weight"
+  | "height";
 
 /**
  * Returns the recommended measurement interval in months based on risk level

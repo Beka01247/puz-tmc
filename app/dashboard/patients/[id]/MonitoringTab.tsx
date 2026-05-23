@@ -479,6 +479,120 @@ export const MonitoringTab = ({
         </Card>
       )}
 
+      {/* Self-Management Confidence Section - Only for PUZ patients */}
+      {isPUZPatient && (
+        <Card className="mt-6 border-2 border-purple-300">
+          <CardHeader className="bg-purple-50">
+            <CardTitle className="text-xl text-purple-700">
+              Уверенность в самоменеджменте
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="max-w-md mx-auto">
+              {(() => {
+                const latestConfidence = currentMeasurements
+                  .filter((m) => m.type === "self-management-confidence")
+                  .sort(
+                    (a, b) =>
+                      new Date(b.createdAt).getTime() -
+                      new Date(a.createdAt).getTime()
+                  )[0];
+
+                const confidenceLevel = latestConfidence
+                  ? parseInt(latestConfidence.value1)
+                  : null;
+
+                // Determine color based on confidence level
+                const getConfidenceColor = (level: number | null) => {
+                  if (level === null) return "text-gray-500";
+                  if (level >= 7) return "text-green-600";
+                  if (level >= 4) return "text-yellow-600";
+                  return "text-red-600";
+                };
+
+                const getConfidenceBgColor = (level: number | null) => {
+                  if (level === null) return "bg-gray-50";
+                  if (level >= 7) return "bg-green-50 border-green-300";
+                  if (level >= 4) return "bg-yellow-50 border-yellow-300";
+                  return "bg-red-50 border-red-300";
+                };
+
+                return (
+                  <Card
+                    className={`border-2 ${getConfidenceBgColor(confidenceLevel)}`}
+                  >
+                    <CardHeader>
+                      <CardTitle
+                        className={`text-center ${getConfidenceColor(confidenceLevel)}`}
+                      >
+                        Уровень:{" "}
+                        {confidenceLevel !== null ? confidenceLevel : "—"} / 10
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div className="text-center">
+                          <div
+                            className={`text-5xl font-bold ${getConfidenceColor(confidenceLevel)}`}
+                          >
+                            {confidenceLevel !== null ? confidenceLevel : "—"}
+                          </div>
+                          <p className="text-sm text-gray-500 mt-2">
+                            Последнее обновление:{" "}
+                            {latestConfidence
+                              ? new Date(
+                                  latestConfidence.createdAt
+                                ).toLocaleDateString("ru-RU")
+                              : "Нет данных"}
+                          </p>
+                        </div>
+
+                        <div className="text-xs text-gray-600 space-y-1 bg-white p-3 rounded border">
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-green-500 rounded"></div>
+                            <span>7-10: Высокий уровень уверенности</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-yellow-500 rounded"></div>
+                            <span>4-6: Средний уровень уверенности</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 bg-red-500 rounded"></div>
+                            <span>0-3: Низкий уровень уверенности</span>
+                          </div>
+                        </div>
+
+                        {canAddMeasurements && (
+                          <div className="flex justify-center gap-2">
+                            <Button
+                              className="hover:bg-purple-400 bg-purple-200"
+                              variant="outline"
+                              onClick={() =>
+                                setSelectedItem({
+                                  id: "self-management-confidence",
+                                  title: "Уверенность",
+                                  unit: "",
+                                  inputType: "single",
+                                  defaultValue: "0",
+                                  isPUZ: true,
+                                  puzConditions: ["АГ", "СД", "ХСН"],
+                                })
+                              }
+                            >
+                              Обновить уверенность
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {selectedStatsItem && selectedStatsItem.inputType !== "file" && (
         <StatisticsModal
           item={{

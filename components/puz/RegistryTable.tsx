@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { PuzCondition, RegistryRow, RiskLevel, CellData } from "@/types/puz";
-import { evaluateRisk } from "@/lib/thresholds";
+import { evaluateRisk, MetricCode } from "@/lib/thresholds";
 import {
   formatCellValue,
   getValueForRiskEvaluation,
@@ -59,27 +59,6 @@ ChartJS.register(
   Legend
 );
 
-type MetricCode =
-  | "kpd"
-  | "lpnp"
-  | "ox"
-  | "sak"
-  | "rskf"
-  | "ecg"
-  | "smad"
-  | "eye"
-  | "bmi"
-  | "smoking"
-  | "foot"
-  | "glucose"
-  | "urine-microalbumin"
-  | "urine-creatinine"
-  | "sodium"
-  | "potassium"
-  | "probnp"
-  | "ejection-fraction"
-  | "echocardiography";
-
 // Column definitions for each condition
 const getColumnsForCondition = (condition: PuzCondition): MetricCode[] => {
   switch (condition) {
@@ -97,6 +76,8 @@ const getColumnsForCondition = (condition: PuzCondition): MetricCode[] => {
         "eye",
         "bmi",
         "smoking",
+        "iv-category",
+        "self-management-confidence",
       ];
     case "СД":
       return [
@@ -112,6 +93,8 @@ const getColumnsForCondition = (condition: PuzCondition): MetricCode[] => {
         "eye",
         "smoking",
         "bmi",
+        "iv-category",
+        "self-management-confidence",
       ];
     case "ХСН":
       return [
@@ -125,12 +108,12 @@ const getColumnsForCondition = (condition: PuzCondition): MetricCode[] => {
         "ox",
         "ecg",
         "echocardiography",
-        "urine-microalbumin",
-        "urine-creatinine",
         "sak",
         "smad",
         "smoking",
         "bmi",
+        "iv-category",
+        "self-management-confidence",
       ];
     default:
       return [
@@ -221,6 +204,10 @@ const RegistryTable: React.FC<RegistryTableProps> = ({ condition = "АГ" }) => 
     probnp: "proBNP",
     "ejection-fraction": "ФВ",
     echocardiography: "Эхокардиография",
+    "iv-category": "IV Категория",
+    "self-management-confidence": "Уверенность",
+    weight: "Вес",
+    height: "Рост",
   };
 
   // Fetch data
@@ -500,12 +487,17 @@ const RegistryTable: React.FC<RegistryTableProps> = ({ condition = "АГ" }) => 
                 <th className="border border-blue-500 px-3 py-2 text-center font-medium w-20">
                   Участок
                 </th>
+                <th className="border border-blue-500 px-3 py-2 text-center font-medium w-16">
+                  Пол
+                </th>
                 {columns.map((col) => (
                   <th
                     key={col}
                     className="border border-blue-500 px-3 py-2 text-center font-medium w-20"
                   >
-                    {metricNames[col].split(" ")[0]}
+                    {col === "iv-category"
+                      ? metricNames[col]
+                      : metricNames[col].split(" ")[0]}
                   </th>
                 ))}
               </tr>
@@ -514,7 +506,7 @@ const RegistryTable: React.FC<RegistryTableProps> = ({ condition = "АГ" }) => 
               {loading ? (
                 <tr>
                   <td
-                    colSpan={columns.length + 2}
+                    colSpan={columns.length + 3}
                     className="text-center py-8 text-gray-500"
                   >
                     Загрузка...
@@ -523,7 +515,7 @@ const RegistryTable: React.FC<RegistryTableProps> = ({ condition = "АГ" }) => 
               ) : data.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={columns.length + 2}
+                    colSpan={columns.length + 3}
                     className="text-center py-8 text-gray-500"
                   >
                     Нет данных
@@ -545,6 +537,13 @@ const RegistryTable: React.FC<RegistryTableProps> = ({ condition = "АГ" }) => 
                       </td>
                       <td className="border border-gray-300 px-2 py-2 text-center text-xs">
                         {row.участок || "—"}
+                      </td>
+                      <td className="border border-gray-300 px-2 py-2 text-center text-xs">
+                        {row.gender === "МУЖСКОЙ"
+                          ? "М"
+                          : row.gender === "ЖЕНСКИЙ"
+                            ? "Ж"
+                            : "—"}
                       </td>
                       {columns.map((col) => {
                         const cellData = getCellData(row, col);
@@ -656,9 +655,13 @@ const RegistryTable: React.FC<RegistryTableProps> = ({ condition = "АГ" }) => 
           ) : (
             <div className="space-y-4">
               {/* Only show chart for numeric measurements */}
-              {!["smoking", "foot", "eye", "echocardiography"].includes(
-                selectedMeasurement?.metricCode || ""
-              ) && (
+              {![
+                "smoking",
+                "foot",
+                "eye",
+                "echocardiography",
+                "iv-category",
+              ].includes(selectedMeasurement?.metricCode || "") && (
                 <Line
                   data={{
                     labels: [...measurementHistory].reverse().map((m) =>
@@ -764,6 +767,7 @@ const RegistryTable: React.FC<RegistryTableProps> = ({ condition = "АГ" }) => 
                           "smoking",
                           "foot",
                           "eye",
+                          "iv-category",
                         ].includes(selectedMeasurement?.metricCode || "");
                         const displayValue = isBooleanType
                           ? m.value1 === "Да"

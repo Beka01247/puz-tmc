@@ -47,6 +47,16 @@ export function formatCellValue(
     return smoking.value ? "Да" : "Нет";
   }
 
+  if (metricCode === "iv-category" && "value" in value) {
+    const ivCategory = value as SmokingValue;
+    return ivCategory.value ? "Да" : "Нет";
+  }
+
+  if (metricCode === "self-management-confidence" && "value" in value) {
+    const confidence = value as MeasurementValue;
+    return String(confidence.value);
+  }
+
   // Boolean measurements (foot, eye exams) show Да/Нет
   if ((metricCode === "foot" || metricCode === "eye") && "value" in value) {
     const mv = value as MeasurementValue;

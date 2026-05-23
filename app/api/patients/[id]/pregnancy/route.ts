@@ -75,13 +75,6 @@ export async function GET(
     const resolvedParams = await params;
     const session = await auth();
 
-    console.log("Pregnancy GET request:", {
-      patientId: resolvedParams.id,
-      userType: session?.user?.userType,
-      hasSession: !!session,
-      hasUserId: !!session?.user?.id,
-    });
-
     if (
       !session ||
       !session.user?.id ||

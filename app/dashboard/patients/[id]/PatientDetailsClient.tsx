@@ -23,6 +23,7 @@ import { MonitoringTab } from "./MonitoringTab";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { EditDiagnosesModal } from "./EditDiagnosesModal";
 import { EditRiskGroupsModal } from "./EditRiskGroupsModal";
+import { EditSubdivisionModal } from "./EditSubdivisionModal";
 import { toast } from "sonner";
 import { PregnancyCard } from "./PregnancyCard";
 import { FertileWomenRegisterCard } from "@/components/FertileWomenRegisterCard";
@@ -70,6 +71,7 @@ interface Patient {
   organization: string;
   dateOfBirth: string | null;
   gender: "МУЖСКОЙ" | "ЖЕНСКИЙ" | null;
+  subdivision: string | null;
   diagnoses: Diagnosis[];
   riskGroups: RiskGroup[];
 }
@@ -223,6 +225,10 @@ export const PatientDetailsClient = ({
     useState(false);
   const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
   const [isRiskGroupModalOpen, setIsRiskGroupModalOpen] = useState(false);
+  const [isSubdivisionModalOpen, setIsSubdivisionModalOpen] = useState(false);
+  const [currentSubdivision, setCurrentSubdivision] = useState<string | null>(
+    initialData.patient.subdivision
+  );
 
   const handleGoBack = () => {
     router.back();
@@ -236,6 +242,11 @@ export const PatientDetailsClient = ({
   const handleSaveRiskGroups = (riskGroups: RiskGroup[]) => {
     initialData.patient.riskGroups = riskGroups;
     toast.success("Группы риска обновлены");
+  };
+
+  const handleUpdateSubdivision = (newSubdivision: string | null) => {
+    setCurrentSubdivision(newSubdivision);
+    initialData.patient.subdivision = newSubdivision;
   };
 
   const isFemale = initialData.patient.gender === "ЖЕНСКИЙ";
@@ -282,8 +293,10 @@ export const PatientDetailsClient = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 md:gap-x-8 gap-y-3 md:gap-y-2 md:pl-24">
                 <div className="col-span-1 md:col-span-1 flex flex-col sm:flex-row sm:items-center gap-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <strong>ФИО:</strong> 
-                    <span className="break-words">{initialData.patient.fullName}</span>
+                    <strong>ФИО:</strong>
+                    <span className="break-words">
+                      {initialData.patient.fullName}
+                    </span>
                   </div>
                   {isProvider && (
                     <Button
@@ -312,26 +325,52 @@ export const PatientDetailsClient = ({
                   {formatGender(initialData.patient.gender)}
                 </div>
                 <div className="col-span-1 md:col-span-1">
-                  <strong>ИИН:</strong> 
-                  <span className="break-all ml-1">{initialData.patient.iin}</span>
+                  <strong>ИИН:</strong>
+                  <span className="break-all ml-1">
+                    {initialData.patient.iin}
+                  </span>
                 </div>
                 <div className="col-span-1 md:col-span-1">
-                  <strong>Email:</strong> 
-                  <span className="break-all ml-1">{initialData.patient.email}</span>
+                  <strong>Email:</strong>
+                  <span className="break-all ml-1">
+                    {initialData.patient.email}
+                  </span>
                 </div>
                 <div className="col-span-1 md:col-span-1">
-                  <strong>Телефон:</strong> 
-                  <span className="break-all ml-1">{initialData.patient.telephone}</span>
+                  <strong>Телефон:</strong>
+                  <span className="break-all ml-1">
+                    {initialData.patient.telephone}
+                  </span>
                 </div>
                 <div className="col-span-1 md:col-span-1">
-                  <strong>Город:</strong> 
-                  <span className="break-words ml-1">{initialData.patient.city}</span>
+                  <strong>Город:</strong>
+                  <span className="break-words ml-1">
+                    {initialData.patient.city}
+                  </span>
                 </div>
                 <div className="col-span-1 md:col-span-2">
                   <strong>Организация:</strong>{" "}
                   <span className="break-words">
                     {initialData.patient.organization}
                   </span>
+                </div>
+                <div className="col-span-1 md:col-span-1 flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <strong>Участок:</strong>{" "}
+                    <span className="break-words">
+                      {currentSubdivision || "Не указан"}
+                    </span>
+                  </div>
+                  {isProvider && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      onClick={() => setIsSubdivisionModalOpen(true)}
+                    >
+                      Изменить
+                    </Button>
+                  )}
                 </div>
 
                 <div className="col-span-1 md:col-span-2 flex flex-col sm:flex-row sm:items-center gap-2">
@@ -406,7 +445,9 @@ export const PatientDetailsClient = ({
                       <Card>
                         <CardHeader>
                           <CardTitle className="flex items-center justify-between">
-                            <span className="text-sm md:text-base">Регистр женщин фертильного возраста</span>
+                            <span className="text-sm md:text-base">
+                              Регистр женщин фертильного возраста
+                            </span>
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -571,6 +612,14 @@ export const PatientDetailsClient = ({
             riskGroups={initialData.patient.riskGroups}
             patientId={patientId}
             onSave={handleSaveRiskGroups}
+          />
+
+          <EditSubdivisionModal
+            isOpen={isSubdivisionModalOpen}
+            onClose={() => setIsSubdivisionModalOpen(false)}
+            patientId={patientId}
+            currentSubdivision={currentSubdivision}
+            onUpdate={handleUpdateSubdivision}
           />
         </div>
       </TooltipProvider>
